@@ -4,15 +4,15 @@ import '../models/cliente_model.dart';
 import '../services/cliente_service.dart';
 
 class ClienteRepository {
-  final ClienteService _service;
+  final ClienteService service;
 
   const ClienteRepository({
-    required ClienteService service,
-  }) : _service = service;
+    required this.service,
+  });
 
   Future<Result<List<ClienteModel>>> obtenerClientes() async {
     try {
-      final clientes = await _service.obtenerClientes();
+      final clientes = await service.obtenerClientes();
 
       return Success(clientes);
     } catch (e) {
@@ -27,7 +27,7 @@ class ClienteRepository {
     ClienteModel cliente,
   ) async {
     try {
-      await _service.guardarCliente(cliente);
+      await service.guardarCliente(cliente);
 
       return const Success(null);
     } catch (e) {
@@ -42,7 +42,7 @@ class ClienteRepository {
     String id,
   ) async {
     try {
-      await _service.eliminarCliente(id);
+      await service.eliminarCliente(id);
 
       return const Success(null);
     } catch (e) {
