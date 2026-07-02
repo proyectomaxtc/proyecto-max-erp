@@ -75,17 +75,14 @@ sucursal.
 flutter build web --dart-define=SUPABASE_URL=https://TU-PROYECTO.supabase.co --dart-define=SUPABASE_ANON_KEY=TU_ANON_KEY
 ```
 
-Para tu proyecto:
-
-```powershell
-flutter build web --dart-define=SUPABASE_URL=https://gbnzlvxnbylpzkskalmm.supabase.co --dart-define=SUPABASE_ANON_KEY=TU_CLAVE_PUBLICA
-```
+Para el proyecto real, no escribir los valores en archivos del repositorio.
+Usar variables de entorno en Netlify.
 
 ## Netlify
 
 En Netlify:
 
-- Build command: `flutter build web --dart-define=SUPABASE_URL=$SUPABASE_URL --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY`
+- Build command: `bash scripts/netlify_build.sh`
 - Publish directory: `build/web`
 
 Agregar `SUPABASE_URL` y `SUPABASE_ANON_KEY` en las variables de entorno del
