@@ -1,32 +1,32 @@
 {
-    "name": "proyecto_max",
-    "short_name": "proyecto_max",
+    "name": "Tucuman Cerraduras",
+    "short_name": "TC APP",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#101010",
+    "theme_color": "#ffc107",
+    "description": "Sistema de gestion para ventas, caja, productos, servicios y control operativo de Tucuman Cerraduras.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
         {
-            "src": "icons/Icon-192.png",
+            "src": "icons/tc-key-192.png",
             "sizes": "192x192",
             "type": "image/png"
         },
         {
-            "src": "icons/Icon-512.png",
+            "src": "icons/tc-key-512.png",
             "sizes": "512x512",
             "type": "image/png"
         },
         {
-            "src": "icons/Icon-maskable-192.png",
+            "src": "icons/tc-key-maskable-192.png",
             "sizes": "192x192",
             "type": "image/png",
             "purpose": "maskable"
         },
         {
-            "src": "icons/Icon-maskable-512.png",
+            "src": "icons/tc-key-maskable-512.png",
             "sizes": "512x512",
             "type": "image/png",
             "purpose": "maskable"

@@ -3,7 +3,11 @@ class AppRoutes {
 
   static const dashboard = '/';
 
+  static const login = '/login';
+
   static const clientes = '/clientes';
+
+  static const productos = '/productos';
 
   static const caja = '/caja';
 
@@ -16,6 +20,8 @@ class AppRoutes {
   static const servicios = '/servicios';
 
   static const reportes = '/reportes';
+
+  static const comprobantes = '/comprobantes';
 
   static const configuracion = '/configuracion';
 }

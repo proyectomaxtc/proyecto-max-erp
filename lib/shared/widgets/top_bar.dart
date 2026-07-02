@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../app/routes.dart';
 import '../../core/constants/app_colors.dart';
 
 class TopBar extends StatelessWidget {
   final String title;
 
-  const TopBar({
-    super.key,
-    this.title = "Dashboard",
-  });
+  const TopBar({super.key, this.title = "Dashboard"});
 
   @override
   Widget build(BuildContext context) {
@@ -18,15 +17,12 @@ class TopBar extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border(
-          bottom: BorderSide(
-            color: Colors.white.withValues(alpha: .08),
-          ),
+          bottom: BorderSide(color: Colors.white.withValues(alpha: .08)),
         ),
       ),
 
       child: Row(
         children: [
-
           Text(
             title,
             style: const TextStyle(
@@ -42,6 +38,22 @@ class TopBar extends StatelessWidget {
             width: 320,
 
             child: TextField(
+              onSubmitted: (value) {
+                final query = value.trim().toLowerCase();
+
+                if (query.contains('venta')) {
+                  context.go(AppRoutes.ventas);
+                } else if (query.contains('cliente')) {
+                  context.go(AppRoutes.clientes);
+                } else if (query.contains('producto') ||
+                    query.contains('stock')) {
+                  context.go(AppRoutes.productos);
+                } else if (query.contains('caja')) {
+                  context.go(AppRoutes.caja);
+                } else if (query.contains('servicio')) {
+                  context.go(AppRoutes.servicios);
+                }
+              },
               decoration: InputDecoration(
                 hintText: "Buscar...",
                 prefixIcon: const Icon(Icons.search),
@@ -50,9 +62,7 @@ class TopBar extends StatelessWidget {
 
                 fillColor: AppColors.card,
 
-                contentPadding: const EdgeInsets.symmetric(
-                  vertical: 0,
-                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 0),
 
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -64,19 +74,21 @@ class TopBar extends StatelessWidget {
           const SizedBox(width: 20),
 
           IconButton(
-            onPressed: () {},
-            icon: const Icon(
-              Icons.notifications_none,
-              color: Colors.white70,
-            ),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text("No hay notificaciones pendientes"),
+                ),
+              );
+            },
+            icon: const Icon(Icons.notifications_none, color: Colors.white70),
           ),
 
           IconButton(
-            onPressed: () {},
-            icon: const Icon(
-              Icons.settings_outlined,
-              color: Colors.white70,
-            ),
+            onPressed: () {
+              context.go(AppRoutes.configuracion);
+            },
+            icon: const Icon(Icons.settings_outlined, color: Colors.white70),
           ),
 
           const SizedBox(width: 15),
@@ -84,10 +96,7 @@ class TopBar extends StatelessWidget {
           const CircleAvatar(
             radius: 18,
             backgroundColor: AppColors.primary,
-            child: Icon(
-              Icons.person,
-              color: Colors.black,
-            ),
+            child: Icon(Icons.person, color: Colors.black),
           ),
 
           const SizedBox(width: 10),
@@ -96,7 +105,6 @@ class TopBar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-
               Text(
                 "Cristian",
                 style: TextStyle(
@@ -109,14 +117,10 @@ class TopBar extends StatelessWidget {
 
               Text(
                 "Administrador",
-                style: TextStyle(
-                  color: Colors.white54,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: Colors.white54, fontSize: 12),
               ),
             ],
           ),
-
         ],
       ),
     );

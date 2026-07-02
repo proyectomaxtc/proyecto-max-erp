@@ -1,0 +1,25 @@
+const List<String> productoCategoriasBase = [
+  'Cerraduras',
+  'Cilindros',
+  'Llaves',
+  'Copias de llaves',
+  'Candados',
+  'Herrajes',
+  'Picaportes',
+  'Manijones',
+  'Bisagras',
+  'Pasadores',
+  'Cerrojos',
+  'Barrales antipanico',
+  'Cajas fuertes',
+  'Controles remotos',
+  'Automotor',
+  'Alarmas',
+  'Accesorios',
+  'Herramientas',
+  'Insumos',
+  'Servicios',
+  'Otros',
+];
+
+const String productoCategoriaOtra = 'Otra categoria';

@@ -1,124 +1,93 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/routes.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/company.dart';
+import '../../../features/auth/providers/auth_provider.dart';
+import 'menu_items.dart';
 
-class SideMenu extends StatelessWidget {
+class SideMenu extends ConsumerWidget {
   const SideMenu({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final auth = ref.watch(authProvider);
+    final usuario = auth.usuario;
+    final visibleItems = auth.esPropietario
+        ? menuItems
+        : menuItems.where((item) => item.visibleParaEmpleado).toList();
+
     return Container(
       width: 260,
       color: const Color(0xFF151515),
       child: Column(
         children: [
           const _CompanyHeader(),
-
-          const Divider(
-            color: AppColors.divider,
-            height: 1,
-          ),
-
+          const Divider(color: AppColors.divider, height: 1),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 20,
-              ),
-              children: const [
-
-                _MenuTile(
-                  icon: Icons.dashboard_rounded,
-                  title: "Dashboard",
-                  route: "/",
-                  selected: true,
-                ),
-
-                _MenuTile(
-                  icon: Icons.people_alt_rounded,
-                  title: "Clientes",
-                  route: "/clientes",
-                ),
-
-                _MenuTile(
-                  icon: Icons.point_of_sale_rounded,
-                  title: "Caja",
-                  route: "/",
-                ),
-
-                _MenuTile(
-                  icon: Icons.inventory_2_rounded,
-                  title: "Inventario",
-                  route: "/",
-                ),
-
-                _MenuTile(
-                  icon: Icons.shopping_cart_rounded,
-                  title: "Compras",
-                  route: "/",
-                ),
-
-                _MenuTile(
-                  icon: Icons.sell_rounded,
-                  title: "Ventas",
-                  route: "/",
-                ),
-
-                _MenuTile(
-                  icon: Icons.key_rounded,
-                  title: "Servicios",
-                  route: "/",
-                ),
-
-                _MenuTile(
-                  icon: Icons.bar_chart_rounded,
-                  title: "Reportes",
-                  route: "/",
-                ),
-
-                _MenuTile(
-                  icon: Icons.settings_rounded,
-                  title: "Configuración",
-                  route: "/",
-                ),
-              ],
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
+              children: visibleItems
+                  .map(
+                    (item) => _MenuTile(
+                      icon: item.icon,
+                      title: item.title,
+                      route: item.route,
+                    ),
+                  )
+                  .toList(),
             ),
           ),
-
           Padding(
             padding: const EdgeInsets.all(16),
             child: SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: () {},
+                onPressed: () {
+                  showDialog<bool>(
+                    context: context,
+                    builder: (_) {
+                      return AlertDialog(
+                        title: const Text("Cerrar sesion"),
+                        content: const Text("Desea salir del sistema?"),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text("Cancelar"),
+                          ),
+                          FilledButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text("Salir"),
+                          ),
+                        ],
+                      );
+                    },
+                  ).then((salir) {
+                    if (salir == true && context.mounted) {
+                      ref.read(authProvider.notifier).logout();
+                      context.go(AppRoutes.login);
+                    }
+                  });
+                },
                 icon: const Icon(Icons.logout),
-                label: const Text("Cerrar sesión"),
+                label: const Text("Cerrar sesion"),
               ),
             ),
           ),
-
           const SizedBox(height: 12),
-
           const Text(
-            "Versión 1.0.0",
-            style: TextStyle(
-              color: AppColors.textDisabled,
-              fontSize: 11,
-            ),
+            "Version 1.0.0",
+            style: TextStyle(color: AppColors.textDisabled, fontSize: 11),
           ),
-
           const SizedBox(height: 4),
-
-          const Text(
-            "Powered by Proyecto MAX",
-            style: TextStyle(
-              color: AppColors.textDisabled,
-              fontSize: 11,
-            ),
+          Text(
+            usuario == null
+                ? "Sin usuario"
+                : "${usuario.nombre} - ${usuario.rol}",
+            style: TextStyle(color: AppColors.textDisabled, fontSize: 11),
           ),
-
           const SizedBox(height: 18),
         ],
       ),
@@ -135,14 +104,8 @@ class _CompanyHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
       child: Column(
         children: [
-          Image.asset(
-            Company.logo,
-            height: 80,
-            fit: BoxFit.contain,
-          ),
-
+          Image.asset(Company.logo, height: 80, fit: BoxFit.contain),
           const SizedBox(height: 18),
-
           const Text(
             Company.name,
             textAlign: TextAlign.center,
@@ -152,25 +115,15 @@ class _CompanyHeader extends StatelessWidget {
               fontSize: 24,
             ),
           ),
-
           const SizedBox(height: 6),
-
           const Text(
             Company.system,
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 13,
-            ),
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
           ),
-
           const SizedBox(height: 4),
-
           const Text(
             Company.slogan,
-            style: TextStyle(
-              color: AppColors.textDisabled,
-              fontSize: 11,
-            ),
+            style: TextStyle(color: AppColors.textDisabled, fontSize: 11),
           ),
         ],
       ),
@@ -182,18 +135,17 @@ class _MenuTile extends StatelessWidget {
   final IconData icon;
   final String title;
   final String route;
-  final bool selected;
 
   const _MenuTile({
     required this.icon,
     required this.title,
     required this.route,
-    this.selected = false,
-    
   });
 
   @override
   Widget build(BuildContext context) {
+    final selected = GoRouterState.of(context).uri.toString() == route;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
@@ -207,21 +159,14 @@ class _MenuTile extends StatelessWidget {
             context.go(route);
           },
           child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(
               children: [
                 Icon(
                   icon,
-                  color: selected
-                      ? AppColors.primary
-                      : AppColors.textSecondary,
+                  color: selected ? AppColors.primary : AppColors.textSecondary,
                 ),
-
                 const SizedBox(width: 16),
-
                 Expanded(
                   child: Text(
                     title,

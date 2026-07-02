@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../shared/widgets/cards/kpi_card.dart';
 import '../../models/dashboard_stats.dart';
+import '../../../../core/utils/currency_formatter.dart';
 
 class KpiGrid extends StatelessWidget {
   final DashboardStats stats;
@@ -24,7 +25,7 @@ class KpiGrid extends StatelessWidget {
       children: [
         KpiCard(
           title: "Caja",
-          value: "\$${stats.cash.toStringAsFixed(0)}",
+          value: CurrencyFormatter.format(stats.cash),
           icon: Icons.account_balance_wallet,
           color: AppColors.cash,
           variation: "+8%",
@@ -32,7 +33,7 @@ class KpiGrid extends StatelessWidget {
 
         KpiCard(
           title: "Ventas",
-          value: "\$${stats.sales.toStringAsFixed(0)}",
+         value: CurrencyFormatter.format(stats.sales),
           icon: Icons.point_of_sale,
           color: AppColors.sales,
           variation: "+18%",
@@ -40,7 +41,7 @@ class KpiGrid extends StatelessWidget {
 
         KpiCard(
           title: "Compras",
-          value: "\$${stats.purchases.toStringAsFixed(0)}",
+          value: CurrencyFormatter.format(stats.purchases),
           icon: Icons.shopping_cart,
           color: AppColors.purchases,
           variation: "-4%",
@@ -48,7 +49,7 @@ class KpiGrid extends StatelessWidget {
 
         KpiCard(
           title: "Utilidad",
-          value: "\$${stats.profit.toStringAsFixed(0)}",
+         value: CurrencyFormatter.format(stats.profit),
           icon: Icons.trending_up,
           color: AppColors.success,
           variation: "+11%",

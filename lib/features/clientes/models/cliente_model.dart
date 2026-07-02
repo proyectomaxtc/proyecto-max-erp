@@ -1,34 +1,34 @@
-import 'dart:convert';
-
 class ClienteModel {
+  static const consumidorFinalId = 'cliente-consumidor-final';
+
   final String id;
-
   final String nombre;
-
   final String apellido;
-
   final String telefono;
-
-  final String? email;
-
-  final String? direccion;
-
-  final DateTime createdAt;
-
-  final DateTime updatedAt;
-
-  final bool isActive;
+  final String email;
+  final String direccion;
+  final String ciudad;
+  final String provincia;
+  final String cuit;
+  final String observaciones;
+  final bool activo;
+  final DateTime creado;
+  final DateTime actualizado;
 
   const ClienteModel({
     required this.id,
     required this.nombre,
     required this.apellido,
     required this.telefono,
-    this.email,
-    this.direccion,
-    required this.createdAt,
-    required this.updatedAt,
-    this.isActive = true,
+    required this.email,
+    required this.direccion,
+    required this.ciudad,
+    required this.provincia,
+    required this.cuit,
+    required this.observaciones,
+    required this.activo,
+    required this.creado,
+    required this.actualizado,
   });
 
   ClienteModel copyWith({
@@ -38,9 +38,13 @@ class ClienteModel {
     String? telefono,
     String? email,
     String? direccion,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-    bool? isActive,
+    String? ciudad,
+    String? provincia,
+    String? cuit,
+    String? observaciones,
+    bool? activo,
+    DateTime? creado,
+    DateTime? actualizado,
   }) {
     return ClienteModel(
       id: id ?? this.id,
@@ -49,9 +53,13 @@ class ClienteModel {
       telefono: telefono ?? this.telefono,
       email: email ?? this.email,
       direccion: direccion ?? this.direccion,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-      isActive: isActive ?? this.isActive,
+      ciudad: ciudad ?? this.ciudad,
+      provincia: provincia ?? this.provincia,
+      cuit: cuit ?? this.cuit,
+      observaciones: observaciones ?? this.observaciones,
+      activo: activo ?? this.activo,
+      creado: creado ?? this.creado,
+      actualizado: actualizado ?? this.actualizado,
     );
   }
 
@@ -63,28 +71,72 @@ class ClienteModel {
       'telefono': telefono,
       'email': email,
       'direccion': direccion,
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
-      'isActive': isActive,
+      'ciudad': ciudad,
+      'provincia': provincia,
+      'cuit': cuit,
+      'observaciones': observaciones,
+      'activo': activo,
+      'creado': creado.toIso8601String(),
+      'actualizado': actualizado.toIso8601String(),
     };
   }
 
-  factory ClienteModel.fromMap(Map<String, dynamic> map) {
+  factory ClienteModel.fromMap(Map<dynamic, dynamic> map) {
     return ClienteModel(
-      id: map['id'] as String,
-      nombre: map['nombre'] as String,
-      apellido: map['apellido'] as String,
-      telefono: map['telefono'] as String,
-      email: map['email'] as String?,
-      direccion: map['direccion'] as String?,
-      createdAt: DateTime.parse(map['createdAt'] as String),
-      updatedAt: DateTime.parse(map['updatedAt'] as String),
-      isActive: map['isActive'] as bool? ?? true,
+      id: map['id'] as String? ?? '',
+      nombre: map['nombre'] as String? ?? '',
+      apellido: map['apellido'] as String? ?? '',
+      telefono: map['telefono'] as String? ?? '',
+      email: map['email'] as String? ?? '',
+      direccion: map['direccion'] as String? ?? '',
+      ciudad: map['ciudad'] as String? ?? '',
+      provincia: map['provincia'] as String? ?? '',
+      cuit: map['cuit'] as String? ?? '',
+      observaciones: map['observaciones'] as String? ?? '',
+      activo: map['activo'] as bool? ?? true,
+      creado:
+          DateTime.tryParse(map['creado'] as String? ?? '') ?? DateTime.now(),
+      actualizado:
+          DateTime.tryParse(map['actualizado'] as String? ?? '') ??
+          DateTime.now(),
     );
   }
 
-  String toJson() => jsonEncode(toMap());
+  factory ClienteModel.empty() {
+    return ClienteModel(
+      id: '',
+      nombre: '',
+      apellido: '',
+      telefono: '',
+      email: '',
+      direccion: '',
+      ciudad: '',
+      provincia: '',
+      cuit: '',
+      observaciones: '',
+      activo: true,
+      creado: DateTime.now(),
+      actualizado: DateTime.now(),
+    );
+  }
 
-  factory ClienteModel.fromJson(String source) =>
-      ClienteModel.fromMap(jsonDecode(source));
+  factory ClienteModel.consumidorFinal() {
+    final ahora = DateTime.now();
+
+    return ClienteModel(
+      id: consumidorFinalId,
+      nombre: 'Consumidor Final',
+      apellido: '',
+      telefono: '',
+      email: '',
+      direccion: '',
+      ciudad: 'Tucuman',
+      provincia: 'Tucuman',
+      cuit: '',
+      observaciones: 'Cliente fijo para ventas de mostrador.',
+      activo: true,
+      creado: ahora,
+      actualizado: ahora,
+    );
+  }
 }
