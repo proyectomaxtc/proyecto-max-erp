@@ -25,10 +25,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
     var usuarios = await service.obtenerUsuarios();
     final nombreNormalizado = nombre.trim().toLowerCase();
     final codigoNormalizado = codigo.trim();
-    final authId = await SupabaseAuthService.signIn(
+    final onlineLogin = nombreNormalizado.contains('@');
+    final signIn = await SupabaseAuthService.signIn(
       identifier: nombre,
       password: codigo,
     );
+    final authId = signIn.authId;
 
     if (authId != null) {
       usuarios = await service.obtenerUsuarios();
@@ -52,6 +54,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
         );
         return true;
       }
+
+      state = state.copyWith(
+        usuarios: usuarios,
+        error:
+            'El email inicio sesion en Supabase, pero falta asociarlo en user_profiles.',
+      );
+      return false;
+    }
+
+    if (onlineLogin && signIn.error != null) {
+      state = state.copyWith(usuarios: usuarios, error: signIn.error);
+      return false;
     }
 
     for (final usuario in usuarios) {

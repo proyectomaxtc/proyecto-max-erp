@@ -205,7 +205,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             obscureText: !mostrarCodigo,
             onSubmitted: (_) => ingresar(),
             decoration: decoration(
-              label: "Codigo / contrasena",
+              label: "Codigo local / contrasena Supabase",
               icon: Icons.lock_outline,
               suffix: IconButton(
                 tooltip: mostrarCodigo ? "Ocultar codigo" : "Mostrar codigo",
@@ -284,7 +284,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           ),
           const SizedBox(height: 16),
           const Text(
-            "Cada operacion queda asociada al usuario y su sucursal. Para operar online use email de Supabase.",
+            "Para operar online use email y contrasena de Supabase. El codigo local solo sirve para ingreso local.",
             style: TextStyle(color: AppColors.textDisabled, fontSize: 12),
           ),
         ],

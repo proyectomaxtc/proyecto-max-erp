@@ -6,12 +6,19 @@ import 'supabase_config.dart';
 class SupabaseAuthService {
   SupabaseAuthService._();
 
-  static Future<String?> signIn({
+  static Future<SupabaseSignInResult> signIn({
     required String identifier,
     required String password,
   }) async {
-    if (!SupabaseConfig.isConfigured || !identifier.contains('@')) {
-      return null;
+    if (!identifier.contains('@')) {
+      return const SupabaseSignInResult();
+    }
+
+    if (!SupabaseConfig.isConfigured) {
+      return const SupabaseSignInResult(
+        error:
+            'Netlify no tiene Supabase configurado. Revise SUPABASE_URL y SUPABASE_ANON_KEY.',
+      );
     }
 
     try {
@@ -20,9 +27,29 @@ class SupabaseAuthService {
         password: password.trim(),
       );
 
-      return response.user?.id;
+      return SupabaseSignInResult(authId: response.user?.id);
+    } on AuthException catch (error) {
+      final message = error.message.toLowerCase();
+
+      if (message.contains('email not confirmed')) {
+        return const SupabaseSignInResult(
+          error:
+              'El email existe en Supabase, pero falta confirmarlo en Authentication.',
+        );
+      }
+
+      if (message.contains('invalid login credentials')) {
+        return const SupabaseSignInResult(
+          error:
+              'Email o contrasena de Supabase incorrectos. Use la contrasena creada en Supabase, no el codigo local.',
+        );
+      }
+
+      return SupabaseSignInResult(error: error.message);
     } catch (_) {
-      return null;
+      return const SupabaseSignInResult(
+        error: 'No se pudo conectar con Supabase. Revise la configuracion.',
+      );
     }
   }
 
@@ -99,4 +126,11 @@ class SupabaseAuthService {
   static String _normalize(String value) {
     return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
   }
+}
+
+class SupabaseSignInResult {
+  final String? authId;
+  final String? error;
+
+  const SupabaseSignInResult({this.authId, this.error});
 }
