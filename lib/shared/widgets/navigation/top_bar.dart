@@ -25,10 +25,18 @@ class TopBar extends ConsumerStatefulWidget {
 
 class _TopBarState extends ConsumerState<TopBar> {
   final searchController = TextEditingController();
+  final searchFocusNode = FocusNode();
+  final searchLayerLink = LayerLink();
+  OverlayEntry? searchOverlay;
 
   @override
   void initState() {
     super.initState();
+    searchFocusNode.addListener(() {
+      if (!searchFocusNode.hasFocus) {
+        _hideSearchPreview();
+      }
+    });
 
     Future.microtask(() {
       ref.read(productoProvider.notifier).cargarProductos();
@@ -41,6 +49,8 @@ class _TopBarState extends ConsumerState<TopBar> {
 
   @override
   void dispose() {
+    _hideSearchPreview();
+    searchFocusNode.dispose();
     searchController.dispose();
     super.dispose();
   }
@@ -181,31 +191,40 @@ class _TopBarState extends ConsumerState<TopBar> {
           ),
           Expanded(
             flex: 4,
-            child: SizedBox(
-              height: 48,
-              child: TextField(
-                controller: searchController,
-                onSubmitted: _showSearchResults,
-                decoration: InputDecoration(
-                  hintText: "Buscar productos, ventas, clientes...",
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: searchController.text.isEmpty
-                      ? null
-                      : IconButton(
-                          tooltip: "Limpiar",
-                          onPressed: () {
-                            setState(searchController.clear);
-                          },
-                          icon: const Icon(Icons.close),
-                        ),
-                  filled: true,
-                  fillColor: AppColors.card,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
+            child: CompositedTransformTarget(
+              link: searchLayerLink,
+              child: SizedBox(
+                height: 48,
+                child: TextField(
+                  controller: searchController,
+                  focusNode: searchFocusNode,
+                  onSubmitted: (value) {
+                    _hideSearchPreview();
+                    _showSearchResults(value);
+                  },
+                  decoration: InputDecoration(
+                    hintText: "Buscar productos, ventas, clientes...",
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: searchController.text.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: "Limpiar",
+                            onPressed: () {
+                              searchController.clear();
+                              _hideSearchPreview();
+                              setState(() {});
+                            },
+                            icon: const Icon(Icons.close),
+                          ),
+                    filled: true,
+                    fillColor: AppColors.card,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide.none,
+                    ),
                   ),
+                  onChanged: _showSearchPreview,
                 ),
-                onChanged: (_) => setState(() {}),
               ),
             ),
           ),
@@ -324,88 +343,7 @@ class _TopBarState extends ConsumerState<TopBar> {
       return;
     }
 
-    final auth = ref.read(authProvider);
-    final productos = ref
-        .read(productoProvider)
-        .productos
-        .where((producto) {
-          final texto = [
-            producto.codigo,
-            producto.nombre,
-            producto.categoria,
-            producto.marca,
-            producto.proveedor,
-          ].join(' ').toLowerCase();
-          return texto.contains(query);
-        })
-        .take(8);
-    final ventas = ref
-        .read(ventaProvider)
-        .ventas
-        .where((venta) {
-          final texto = [
-            venta.numero,
-            venta.clienteNombre,
-            venta.medioPago,
-            venta.estado,
-          ].join(' ').toLowerCase();
-          return texto.contains(query);
-        })
-        .take(6);
-    final clientes = auth.esPropietario
-        ? ref
-              .read(clienteProvider)
-              .clientes
-              .where((cliente) {
-                final texto = [
-                  cliente.nombre,
-                  cliente.apellido,
-                  cliente.telefono,
-                  cliente.email,
-                  cliente.cuit,
-                ].join(' ').toLowerCase();
-                return texto.contains(query);
-              })
-              .take(6)
-        : ref.read(clienteProvider).clientes.where((cliente) => false);
-
-    final results = [
-      ...productos.map(
-        (producto) => _SearchResult(
-          icon: Icons.inventory_2_outlined,
-          title: producto.nombre,
-          subtitle:
-              '${producto.codigo} - Stock ${producto.stock.toStringAsFixed(0)} - ${CurrencyFormatter.format(producto.precio)}',
-          route: AppRoutes.productos,
-          onOpen: () {
-            ref.read(productoProvider.notifier).buscar(value);
-          },
-        ),
-      ),
-      ...ventas.map(
-        (venta) => _SearchResult(
-          icon: Icons.sell_outlined,
-          title: venta.numero,
-          subtitle:
-              '${venta.clienteNombre} - ${CurrencyFormatter.format(venta.total)} - ${venta.estado}',
-          route: AppRoutes.ventas,
-          onOpen: () {
-            ref.read(ventaProvider.notifier).buscar(value);
-          },
-        ),
-      ),
-      ...clientes.map(
-        (cliente) => _SearchResult(
-          icon: Icons.person_search_outlined,
-          title: '${cliente.nombre} ${cliente.apellido}'.trim(),
-          subtitle: cliente.telefono.isEmpty ? cliente.email : cliente.telefono,
-          route: AppRoutes.clientes,
-          onOpen: () {
-            ref.read(clienteProvider.notifier).buscar(value);
-          },
-        ),
-      ),
-    ];
+    final results = _searchResults(value, productLimit: 8, otherLimit: 6);
 
     if (results.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -445,6 +383,198 @@ class _TopBarState extends ConsumerState<TopBar> {
         );
       },
     );
+  }
+
+  void _showSearchPreview(String value) {
+    setState(() {});
+
+    final query = value.trim();
+    if (query.length < 2 || widget.compact) {
+      _hideSearchPreview();
+      return;
+    }
+
+    final results = _searchResults(query, productLimit: 6, otherLimit: 3);
+    if (results.isEmpty) {
+      _hideSearchPreview();
+      return;
+    }
+
+    _hideSearchPreview();
+    searchOverlay = OverlayEntry(
+      builder: (context) {
+        return Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: _hideSearchPreview,
+            child: Stack(
+              children: [
+                CompositedTransformFollower(
+                  link: searchLayerLink,
+                  showWhenUnlinked: false,
+                  offset: const Offset(0, 54),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Container(
+                      width: 470,
+                      constraints: const BoxConstraints(maxHeight: 360),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.border),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: .35),
+                            blurRadius: 24,
+                            offset: const Offset(0, 12),
+                          ),
+                        ],
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: ListView.separated(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        shrinkWrap: true,
+                        itemCount: results.length,
+                        separatorBuilder: (context, index) =>
+                            const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final result = results[index];
+                          return ListTile(
+                            dense: true,
+                            leading: Icon(
+                              result.icon,
+                              color: AppColors.primary,
+                            ),
+                            title: Text(
+                              result.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            subtitle: Text(
+                              result.subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            trailing: const Icon(
+                              Icons.arrow_forward_ios,
+                              size: 14,
+                            ),
+                            onTap: () {
+                              _hideSearchPreview();
+                              result.onOpen();
+                              this.context.go(result.route);
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    Overlay.of(context).insert(searchOverlay!);
+  }
+
+  void _hideSearchPreview() {
+    searchOverlay?.remove();
+    searchOverlay = null;
+  }
+
+  List<_SearchResult> _searchResults(
+    String value, {
+    required int productLimit,
+    required int otherLimit,
+  }) {
+    final query = value.trim().toLowerCase();
+    final auth = ref.read(authProvider);
+    final sucursal = ref.read(productoProvider).sucursalSeleccionada;
+    final productos = ref
+        .read(productoProvider)
+        .productos
+        .where((producto) {
+          final texto = [
+            producto.codigo,
+            producto.codigoBarras,
+            producto.nombre,
+            producto.categoria,
+            producto.marca,
+            producto.proveedor,
+          ].join(' ').toLowerCase();
+          return texto.contains(query);
+        })
+        .take(productLimit);
+    final ventas = ref
+        .read(ventaProvider)
+        .ventas
+        .where((venta) {
+          final texto = [
+            venta.numero,
+            venta.clienteNombre,
+            venta.medioPago,
+            venta.estado,
+          ].join(' ').toLowerCase();
+          return texto.contains(query);
+        })
+        .take(otherLimit);
+    final clientes = auth.esPropietario
+        ? ref
+              .read(clienteProvider)
+              .clientes
+              .where((cliente) {
+                final texto = [
+                  cliente.nombre,
+                  cliente.apellido,
+                  cliente.telefono,
+                  cliente.email,
+                  cliente.cuit,
+                ].join(' ').toLowerCase();
+                return texto.contains(query);
+              })
+              .take(otherLimit)
+        : ref.read(clienteProvider).clientes.where((cliente) => false);
+
+    return [
+      ...productos.map(
+        (producto) => _SearchResult(
+          icon: Icons.inventory_2_outlined,
+          title: producto.nombre,
+          subtitle:
+              '${producto.codigo} - Stock ${producto.stockEnSucursal(sucursal).toStringAsFixed(0)} - ${CurrencyFormatter.format(producto.precio)}',
+          route: AppRoutes.productos,
+          onOpen: () {
+            ref.read(productoProvider.notifier).buscar(value);
+          },
+        ),
+      ),
+      ...ventas.map(
+        (venta) => _SearchResult(
+          icon: Icons.sell_outlined,
+          title: venta.numero,
+          subtitle:
+              '${venta.clienteNombre} - ${CurrencyFormatter.format(venta.total)} - ${venta.estado}',
+          route: AppRoutes.ventas,
+          onOpen: () {
+            ref.read(ventaProvider.notifier).buscar(value);
+          },
+        ),
+      ),
+      ...clientes.map(
+        (cliente) => _SearchResult(
+          icon: Icons.person_search_outlined,
+          title: '${cliente.nombre} ${cliente.apellido}'.trim(),
+          subtitle: cliente.telefono.isEmpty ? cliente.email : cliente.telefono,
+          route: AppRoutes.clientes,
+          onOpen: () {
+            ref.read(clienteProvider.notifier).buscar(value);
+          },
+        ),
+      ),
+    ];
   }
 
   List<_NotificationItem> _notifications() {

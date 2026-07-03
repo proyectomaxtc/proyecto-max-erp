@@ -63,8 +63,9 @@ class ProductoTable extends ConsumerWidget {
 
     if (compact) {
       return ListView.separated(
+        padding: const EdgeInsets.only(bottom: 90),
         itemCount: productos.length,
-        separatorBuilder: (context, index) => const SizedBox(height: 10),
+        separatorBuilder: (context, index) => const SizedBox(height: 8),
         itemBuilder: (context, index) {
           final producto = productos[index];
           return _ProductoMobileCard(
@@ -243,83 +244,77 @@ class _ProductoMobileCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.border),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _ProductoThumb(path: producto.imagenPath),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          _ProductoThumb(path: producto.imagenPath),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  producto.nombre,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${producto.codigo} - ${producto.categoria}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
                   children: [
-                    Text(
-                      producto.nombre,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    _InfoPill("Stock", stock.toStringAsFixed(0)),
+                    _InfoPill(
+                      "Precio",
+                      CurrencyFormatter.format(producto.precio),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      producto.codigo,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: AppColors.textSecondary),
-                    ),
+                    _StatusPill(estado),
                   ],
                 ),
-              ),
-              Chip(
-                backgroundColor: estado.color,
-                label: Text(
-                  estado.label,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _InfoPill("Categoria", producto.categoria),
-              _InfoPill("Stock", stock.toStringAsFixed(0)),
-              _InfoPill("Precio", CurrencyFormatter.format(producto.precio)),
-            ],
+              ],
+            ),
           ),
           if (esPropietario) ...[
-            const SizedBox(height: 12),
-            Row(
+            const SizedBox(width: 8),
+            Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: onEdit,
-                    icon: const Icon(Icons.edit_outlined),
-                    label: const Text("Editar"),
-                  ),
+                IconButton.filledTonal(
+                  tooltip: "Editar",
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.edit_outlined, size: 18),
                 ),
-                const SizedBox(width: 10),
-                IconButton.outlined(
+                const SizedBox(height: 2),
+                IconButton(
                   tooltip: "Eliminar",
                   onPressed: onDelete,
-                  icon: const Icon(Icons.delete_outline),
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    size: 18,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -349,8 +344,33 @@ class _InfoPill extends StatelessWidget {
         "$label: $value",
         style: const TextStyle(
           color: AppColors.textSecondary,
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  final _ProductoStatus estado;
+
+  const _StatusPill(this.estado);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: estado.color,
+        borderRadius: BorderRadius.circular(9),
+      ),
+      child: Text(
+        estado.label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
         ),
       ),
     );
