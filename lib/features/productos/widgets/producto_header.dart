@@ -93,6 +93,14 @@ class ProductoHeader extends ConsumerWidget {
                     const ProductoSearch(),
                     const SizedBox(height: 12),
                     Wrap(spacing: 8, runSpacing: 8, children: filtros),
+                    if (esPropietario) ...[
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: () => _importarCatalogoLcc(context, ref),
+                        icon: const Icon(Icons.download_outlined),
+                        label: const Text("Importar LCC"),
+                      ),
+                    ],
                   ],
                 )
               : Row(
@@ -110,6 +118,12 @@ class ProductoHeader extends ConsumerWidget {
                         label: const Text("Nuevo Producto"),
                         onPressed: () => _abrirProducto(context),
                       ),
+                      const SizedBox(width: 10),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.download_outlined),
+                        label: const Text("Importar LCC"),
+                        onPressed: () => _importarCatalogoLcc(context, ref),
+                      ),
                     ],
                   ],
                 ),
@@ -125,6 +139,27 @@ class ProductoHeader extends ConsumerWidget {
       builder: (_) {
         return const AppDialog(title: "Nuevo Producto", child: ProductoForm());
       },
+    );
+  }
+
+  Future<void> _importarCatalogoLcc(BuildContext context, WidgetRef ref) async {
+    final cantidad = await ref
+        .read(productoProvider.notifier)
+        .importarCatalogoInicialLcc();
+
+    if (!context.mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: cantidad > 0 ? AppColors.success : AppColors.info,
+        content: Text(
+          cantidad > 0
+              ? 'Se importaron $cantidad productos de LCC'
+              : 'El catalogo LCC ya estaba cargado',
+        ),
+      ),
     );
   }
 

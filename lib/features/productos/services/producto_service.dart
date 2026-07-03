@@ -16,7 +16,9 @@ class ProductoService {
     );
 
     final productos = values.map(ProductoModel.fromMap).toList();
-    final agregados = await _asegurarCatalogoInicial(productos);
+    final agregados = await importarCatalogoInicialLcc(
+      productosActuales: productos,
+    );
 
     return [...productos, ...agregados];
   }
@@ -69,9 +71,10 @@ class ProductoService {
     await CloudJsonStore.delete(table: StorageBoxes.productos, id: id);
   }
 
-  Future<List<ProductoModel>> _asegurarCatalogoInicial(
-    List<ProductoModel> productos,
-  ) async {
+  Future<List<ProductoModel>> importarCatalogoInicialLcc({
+    List<ProductoModel>? productosActuales,
+  }) async {
+    final productos = productosActuales ?? await obtenerProductos();
     final codigosExistentes = productos
         .map((producto) => producto.codigo.trim().toLowerCase())
         .toSet();

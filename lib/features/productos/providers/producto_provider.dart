@@ -30,6 +30,15 @@ class ProductoNotifier extends StateNotifier<ProductoState> {
     await cargarProductos();
   }
 
+  Future<int> importarCatalogoInicialLcc() async {
+    final agregados = await repository.importarCatalogoInicialLcc(
+      productosActuales: state.productos,
+    );
+
+    await cargarProductos();
+    return agregados.length;
+  }
+
   Future<void> actualizarProducto(ProductoModel producto) async {
     await repository.actualizarProducto(producto);
 
