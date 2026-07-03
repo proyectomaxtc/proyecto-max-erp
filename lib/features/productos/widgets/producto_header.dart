@@ -11,6 +11,7 @@ import '../providers/producto_provider.dart';
 
 import 'producto_form.dart';
 import 'producto_search.dart';
+import 'producto_table.dart';
 
 class ProductoHeader extends ConsumerWidget {
   const ProductoHeader({super.key});
@@ -93,14 +94,19 @@ class ProductoHeader extends ConsumerWidget {
                     const ProductoSearch(),
                     const SizedBox(height: 12),
                     Wrap(spacing: 8, runSpacing: 8, children: filtros),
-                    if (esPropietario) ...[
-                      const SizedBox(height: 12),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      onPressed: () => _abrirListaCompleta(context),
+                      icon: const Icon(Icons.open_in_full_rounded),
+                      label: const Text("Lista completa"),
+                    ),
+                    const SizedBox(height: 12),
+                    if (esPropietario)
                       OutlinedButton.icon(
                         onPressed: () => _importarCatalogoLcc(context, ref),
                         icon: const Icon(Icons.download_outlined),
                         label: const Text("Importar LCC"),
                       ),
-                    ],
                   ],
                 )
               : Row(
@@ -120,6 +126,12 @@ class ProductoHeader extends ConsumerWidget {
                       ),
                       const SizedBox(width: 10),
                       OutlinedButton.icon(
+                        icon: const Icon(Icons.open_in_full_rounded),
+                        label: const Text("Lista completa"),
+                        onPressed: () => _abrirListaCompleta(context),
+                      ),
+                      const SizedBox(width: 10),
+                      OutlinedButton.icon(
                         icon: const Icon(Icons.download_outlined),
                         label: const Text("Importar LCC"),
                         onPressed: () => _importarCatalogoLcc(context, ref),
@@ -129,6 +141,13 @@ class ProductoHeader extends ConsumerWidget {
                 ),
         ],
       ),
+    );
+  }
+
+  void _abrirListaCompleta(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => const _CatalogoCompletoDialog(),
     );
   }
 
@@ -162,15 +181,156 @@ class ProductoHeader extends ConsumerWidget {
       ),
     );
   }
+}
 
-  String _labelFiltro(ProductoFilter filtro) {
-    return switch (filtro) {
-      ProductoFilter.todos => "Todos",
-      ProductoFilter.activos => "Activos",
-      ProductoFilter.inactivos => "Inactivos",
-      ProductoFilter.bajoStock => "Stock bajo",
-      ProductoFilter.sinStock => "Sin stock",
-    };
+String _labelFiltro(ProductoFilter filtro) {
+  return switch (filtro) {
+    ProductoFilter.todos => "Todos",
+    ProductoFilter.activos => "Activos",
+    ProductoFilter.inactivos => "Inactivos",
+    ProductoFilter.bajoStock => "Stock bajo",
+    ProductoFilter.sinStock => "Sin stock",
+  };
+}
+
+class _CatalogoCompletoDialog extends ConsumerWidget {
+  const _CatalogoCompletoDialog();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(productoProvider);
+    final usuario = ref.watch(authProvider).usuario;
+    final esPropietario = usuario?.esPropietario ?? false;
+    final compact = MediaQuery.sizeOf(context).width < 760;
+    final sucursalActual = esPropietario
+        ? state.sucursalSeleccionada
+        : (usuario?.sucursal ?? state.sucursalSeleccionada);
+    final filtros = ProductoFilter.values.map((filtro) {
+      final selected = state.filtro == filtro;
+      return ChoiceChip(
+        label: Text(_labelFiltro(filtro)),
+        selected: selected,
+        showCheckmark: false,
+        selectedColor: AppColors.primary,
+        backgroundColor: AppColors.card,
+        labelStyle: TextStyle(
+          color: selected ? Colors.black : AppColors.textSecondary,
+          fontWeight: FontWeight.w600,
+        ),
+        side: BorderSide(
+          color: selected ? AppColors.primary : AppColors.border,
+        ),
+        onSelected: (_) {
+          ref.read(productoProvider.notifier).cambiarFiltro(filtro);
+        },
+      );
+    }).toList();
+    final sucursales = Branches.values.map((sucursal) {
+      final selected = sucursalActual == sucursal;
+      return ChoiceChip(
+        label: Text(sucursal == Branches.casaCentral ? 'Santa Fe' : 'Alberdi'),
+        selected: selected,
+        showCheckmark: false,
+        selectedColor: AppColors.primary,
+        backgroundColor: AppColors.card,
+        labelStyle: TextStyle(
+          color: selected ? Colors.black : AppColors.textSecondary,
+          fontWeight: FontWeight.w700,
+        ),
+        side: BorderSide(
+          color: selected ? AppColors.primary : AppColors.border,
+        ),
+        onSelected: esPropietario
+            ? (_) {
+                ref.read(productoProvider.notifier).cambiarSucursal(sucursal);
+              }
+            : null,
+      );
+    }).toList();
+
+    return Dialog.fullscreen(
+      backgroundColor: const Color(0xFF111111),
+      child: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.all(compact ? 10 : 18),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      "Catalogo de productos",
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  IconButton.filled(
+                    tooltip: "Cerrar",
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              SizedBox(height: compact ? 10 : 14),
+              Container(
+                padding: EdgeInsets.all(compact ? 12 : 16),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: compact
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const ProductoSearch(),
+                          const SizedBox(height: 10),
+                          Wrap(spacing: 8, runSpacing: 8, children: filtros),
+                          if (esPropietario) ...[
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: sucursales,
+                            ),
+                          ],
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          const Expanded(flex: 2, child: ProductoSearch()),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            flex: 3,
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: filtros,
+                            ),
+                          ),
+                          if (esPropietario) ...[
+                            const SizedBox(width: 14),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: sucursales,
+                            ),
+                          ],
+                        ],
+                      ),
+              ),
+              const SizedBox(height: 12),
+              const Expanded(child: ProductoTable()),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
