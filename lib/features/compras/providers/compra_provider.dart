@@ -31,6 +31,36 @@ class CompraNotifier extends StateNotifier<CompraState> {
     await cargarCompras();
   }
 
+  Future<void> registrarPago({
+    required String compraId,
+    required CompraPagoModel pago,
+  }) async {
+    CompraModel? compra;
+    for (final item in state.compras) {
+      if (item.id == compraId) {
+        compra = item;
+        break;
+      }
+    }
+
+    compra ??= (await repository.obtenerCompras())
+        .where((item) => item.id == compraId)
+        .firstOrNull;
+
+    if (compra == null) {
+      return;
+    }
+
+    final nuevoPagado = compra.pagado + pago.monto;
+    final actualizada = compra.copyWith(
+      pagado: nuevoPagado > compra.total ? compra.total : nuevoPagado,
+      pagos: [...compra.pagos, pago],
+    );
+
+    await repository.actualizarCompra(actualizada);
+    await cargarCompras();
+  }
+
   Future<void> eliminarCompra(String id) async {
     CompraModel? compra;
     for (final item in state.compras) {

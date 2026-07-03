@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/branches.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/currency_formatter.dart';
+import '../../caja/models/caja_movimiento_model.dart';
+import '../../caja/providers/caja_provider.dart';
 import '../../productos/models/producto_model.dart';
 import '../../productos/providers/producto_provider.dart';
 import '../models/compra_item_model.dart';
@@ -23,10 +25,13 @@ class _CompraFormState extends ConsumerState<CompraForm> {
   final responsableController = TextEditingController();
   final cantidadController = TextEditingController(text: '1');
   final costoController = TextEditingController();
+  final pagadoController = TextEditingController(text: '0');
+  final transporteController = TextEditingController(text: '0');
   final observacionesController = TextEditingController();
 
   ProductoModel? productoSeleccionado;
   String estado = 'Recibida';
+  String transporteMedioPago = 'Efectivo';
   final List<CompraItemModel> items = [];
 
   double get total {
@@ -39,6 +44,8 @@ class _CompraFormState extends ConsumerState<CompraForm> {
     responsableController.dispose();
     cantidadController.dispose();
     costoController.dispose();
+    pagadoController.dispose();
+    transporteController.dispose();
     observacionesController.dispose();
     super.dispose();
   }
@@ -106,6 +113,9 @@ class _CompraFormState extends ConsumerState<CompraForm> {
       sucursal: sucursal,
       items: List.unmodifiable(items),
       total: total,
+      pagado: _montoPagadoInicial(),
+      transporteCosto: _montoTransporte(),
+      transporteMedioPago: transporteMedioPago,
       estado: estado,
       fecha: ahora,
       observaciones: observacionesController.text.trim(),
@@ -116,6 +126,8 @@ class _CompraFormState extends ConsumerState<CompraForm> {
     if (estado == 'Recibida') {
       await _impactarStock();
     }
+
+    await _registrarTransporteEnCaja(compra);
 
     if (!mounted) return;
     Navigator.pop(context);
@@ -156,6 +168,58 @@ class _CompraFormState extends ConsumerState<CompraForm> {
             ),
       );
     }
+  }
+
+  double _montoPagadoInicial() {
+    final pagado = double.tryParse(pagadoController.text) ?? 0;
+    if (pagado < 0) {
+      return 0;
+    }
+
+    if (pagado > total) {
+      return total;
+    }
+
+    return pagado;
+  }
+
+  double _montoTransporte() {
+    final transporte = double.tryParse(transporteController.text) ?? 0;
+    return transporte < 0 ? 0 : transporte;
+  }
+
+  Future<void> _registrarTransporteEnCaja(CompraModel compra) async {
+    if (compra.transporteCosto <= 0) {
+      return;
+    }
+
+    final turno = ref
+        .read(cajaProvider)
+        .turnoAbiertoParaSucursal(compra.sucursal);
+
+    if (turno == null) {
+      return;
+    }
+
+    await ref
+        .read(cajaProvider.notifier)
+        .agregarMovimiento(
+          CajaMovimientoModel(
+            id: '${compra.id}-transporte',
+            tipo: 'Egreso',
+            concepto:
+                'Transporte compra ${compra.numero} - ${compra.proveedor}',
+            monto: compra.transporteCosto,
+            medioPago: compra.transporteMedioPago,
+            referenciaId: compra.id,
+            origen: 'Compra',
+            turnoId: turno.id,
+            responsable: compra.responsable,
+            bloqueado: true,
+            fecha: compra.fecha,
+            observaciones: compra.observaciones,
+          ),
+        );
   }
 
   @override
@@ -334,6 +398,47 @@ class _CompraFormState extends ConsumerState<CompraForm> {
                       onChanged: (value) {
                         setState(() {
                           estado = value ?? estado;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      controller: pagadoController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: decoration("Pagado al proveedor"),
+                    ),
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      controller: transporteController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: decoration("Transporte contado"),
+                    ),
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<String>(
+                      initialValue: transporteMedioPago,
+                      decoration: decoration("Pago transporte"),
+                      dropdownColor: AppColors.surface,
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'Efectivo',
+                          child: Text('Efectivo'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Transferencia',
+                          child: Text('Transferencia'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Mercado Pago',
+                          child: Text('Mercado Pago'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          transporteMedioPago = value ?? transporteMedioPago;
                         });
                       },
                     ),

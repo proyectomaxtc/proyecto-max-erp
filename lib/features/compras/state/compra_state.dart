@@ -41,6 +41,35 @@ class CompraState {
     return compras.where((compra) => compra.estado == 'Recibida').length;
   }
 
+  double get totalTransportes {
+    return compras.fold(0, (total, compra) => total + compra.transporteCosto);
+  }
+
+  double get deudaTotal {
+    return compras.fold(0, (total, compra) => total + compra.saldoPendiente);
+  }
+
+  int get proveedoresConDeuda {
+    return deudaPorProveedor.keys.length;
+  }
+
+  Map<String, double> get deudaPorProveedor {
+    final deuda = <String, double>{};
+
+    for (final compra in compras) {
+      if (!compra.tieneDeuda) {
+        continue;
+      }
+
+      final proveedor = compra.proveedor.trim().isEmpty
+          ? 'Sin proveedor'
+          : compra.proveedor.trim();
+      deuda[proveedor] = (deuda[proveedor] ?? 0) + compra.saldoPendiente;
+    }
+
+    return deuda;
+  }
+
   CompraState copyWith({
     List<CompraModel>? compras,
     String? busqueda,

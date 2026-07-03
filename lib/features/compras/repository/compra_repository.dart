@@ -12,6 +12,10 @@ class CompraRepository {
     return service.guardarCompra(compra);
   }
 
+  Future<void> actualizarCompra(CompraModel compra) {
+    return service.guardarCompra(compra);
+  }
+
   Future<void> eliminarCompra(String id) {
     return service.eliminarCompra(id);
   }
