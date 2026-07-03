@@ -38,8 +38,10 @@ class _ProductoFormState extends ConsumerState<ProductoForm> {
   final imagenPathController = TextEditingController();
   final costoController = TextEditingController();
   final precioController = TextEditingController();
-  final stockController = TextEditingController();
-  final stockMinimoController = TextEditingController();
+  final stockSantaFeController = TextEditingController();
+  final stockAlberdiController = TextEditingController();
+  final stockMinimoSantaFeController = TextEditingController();
+  final stockMinimoAlberdiController = TextEditingController();
   final ubicacionController = TextEditingController();
 
   String? categoriaSeleccionada;
@@ -57,7 +59,6 @@ class _ProductoFormState extends ConsumerState<ProductoForm> {
     final producto = widget.producto;
 
     if (producto != null) {
-      final sucursal = ref.read(productoProvider).sucursalSeleccionada;
       codigoController.text = producto.codigo;
       codigoBarrasController.text = producto.codigoBarras;
       nombreController.text = producto.nombre;
@@ -71,14 +72,26 @@ class _ProductoFormState extends ConsumerState<ProductoForm> {
       imagenPathController.text = producto.imagenPath;
       costoController.text = producto.costo.toString();
       precioController.text = producto.precio.toString();
-      stockController.text = producto.stockEnSucursal(sucursal).toString();
-      stockMinimoController.text = producto
-          .stockMinimoEnSucursal(sucursal)
+      stockSantaFeController.text = producto
+          .stockEnSucursal(Branches.casaCentral)
+          .toString();
+      stockAlberdiController.text = producto
+          .stockEnSucursal(Branches.alberdi)
+          .toString();
+      stockMinimoSantaFeController.text = producto
+          .stockMinimoEnSucursal(Branches.casaCentral)
+          .toString();
+      stockMinimoAlberdiController.text = producto
+          .stockMinimoEnSucursal(Branches.alberdi)
           .toString();
       ubicacionController.text = producto.ubicacion;
       activo = producto.activo;
     } else {
       codigoController.text = "PRD-${DateTime.now().millisecondsSinceEpoch}";
+      stockSantaFeController.text = '0';
+      stockAlberdiController.text = '0';
+      stockMinimoSantaFeController.text = '0';
+      stockMinimoAlberdiController.text = '0';
     }
 
     calcularMargen();
@@ -96,8 +109,10 @@ class _ProductoFormState extends ConsumerState<ProductoForm> {
     imagenPathController.dispose();
     costoController.dispose();
     precioController.dispose();
-    stockController.dispose();
-    stockMinimoController.dispose();
+    stockSantaFeController.dispose();
+    stockAlberdiController.dispose();
+    stockMinimoSantaFeController.dispose();
+    stockMinimoAlberdiController.dispose();
     ubicacionController.dispose();
 
     super.dispose();
@@ -128,22 +143,18 @@ class _ProductoFormState extends ConsumerState<ProductoForm> {
     if (!_formKey.currentState!.validate()) return;
 
     final ahora = DateTime.now();
-    final sucursal = ref.read(productoProvider).sucursalSeleccionada;
     final categoria = categoriaSeleccionada == productoCategoriaOtra
         ? categoriaController.text.trim()
         : (categoriaSeleccionada ?? '').trim();
-    final stockSucursal = double.tryParse(stockController.text) ?? 0;
-    final minimoSucursal = double.tryParse(stockMinimoController.text) ?? 0;
-    final stockPorSucursal = Map<String, double>.from(
-      widget.producto?.stockPorSucursal ??
-          {Branches.casaCentral: 0, Branches.alberdi: 0},
-    );
-    final minimoPorSucursal = Map<String, double>.from(
-      widget.producto?.stockMinimoPorSucursal ??
-          {Branches.casaCentral: 0, Branches.alberdi: 0},
-    );
-    stockPorSucursal[sucursal] = stockSucursal;
-    minimoPorSucursal[sucursal] = minimoSucursal;
+    final stockPorSucursal = {
+      Branches.casaCentral: double.tryParse(stockSantaFeController.text) ?? 0,
+      Branches.alberdi: double.tryParse(stockAlberdiController.text) ?? 0,
+    };
+    final minimoPorSucursal = {
+      Branches.casaCentral:
+          double.tryParse(stockMinimoSantaFeController.text) ?? 0,
+      Branches.alberdi: double.tryParse(stockMinimoAlberdiController.text) ?? 0,
+    };
     final stockTotal = stockPorSucursal.values.fold<double>(
       0,
       (total, value) => total + value,
@@ -263,8 +274,6 @@ class _ProductoFormState extends ConsumerState<ProductoForm> {
   Widget build(BuildContext context) {
     final categorias = _categoriasDisponibles(ref);
     final categoriaActual = _categoriaActual(categorias);
-    final sucursal = ref.watch(productoProvider).sucursalSeleccionada;
-
     return Form(
       key: _formKey,
       child: Column(
@@ -479,23 +488,53 @@ class _ProductoFormState extends ConsumerState<ProductoForm> {
             ),
           ),
           const SizedBox(height: 20),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              "Stock inicial por sucursal",
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
                 child: TextFormField(
-                  controller: stockController,
+                  controller: stockSantaFeController,
                   keyboardType: TextInputType.number,
-                  decoration: decoration(
-                    "Stock ${sucursal == Branches.casaCentral ? 'Santa Fe' : 'Alberdi'}",
-                  ),
+                  decoration: decoration("Stock Santa Fe"),
                 ),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: TextFormField(
-                  controller: stockMinimoController,
+                  controller: stockAlberdiController,
                   keyboardType: TextInputType.number,
-                  decoration: decoration("Stock minimo"),
+                  decoration: decoration("Stock Alberdi"),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: stockMinimoSantaFeController,
+                  keyboardType: TextInputType.number,
+                  decoration: decoration("Minimo Santa Fe"),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: TextFormField(
+                  controller: stockMinimoAlberdiController,
+                  keyboardType: TextInputType.number,
+                  decoration: decoration("Minimo Alberdi"),
                 ),
               ),
             ],

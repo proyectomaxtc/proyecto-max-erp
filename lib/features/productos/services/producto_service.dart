@@ -3,6 +3,7 @@ import 'package:hive/hive.dart';
 import '../../../core/storage/cloud_json_store.dart';
 import '../../../core/storage/storage_boxes.dart';
 import '../../../core/storage/storage_service.dart';
+import '../data/catalogo_inicial_lcc.dart';
 import '../models/producto_model.dart';
 
 class ProductoService {
@@ -14,7 +15,10 @@ class ProductoService {
       box: _box,
     );
 
-    return values.map(ProductoModel.fromMap).toList();
+    final productos = values.map(ProductoModel.fromMap).toList();
+    final agregados = await _asegurarCatalogoInicial(productos);
+
+    return [...productos, ...agregados];
   }
 
   Future<int> obtenerProximoNumero(String categoria) async {
@@ -63,5 +67,38 @@ class ProductoService {
   Future<void> eliminarProducto(String id) async {
     await _box.delete(id);
     await CloudJsonStore.delete(table: StorageBoxes.productos, id: id);
+  }
+
+  Future<List<ProductoModel>> _asegurarCatalogoInicial(
+    List<ProductoModel> productos,
+  ) async {
+    final codigosExistentes = productos
+        .map((producto) => producto.codigo.trim().toLowerCase())
+        .toSet();
+    final codigosProveedor = productos
+        .map((producto) => producto.codigoBarras.trim())
+        .where((codigo) => codigo.isNotEmpty)
+        .toSet();
+    final agregados = <ProductoModel>[];
+
+    for (final producto in catalogoInicialLcc()) {
+      final existePorCodigo = codigosExistentes.contains(
+        producto.codigo.trim().toLowerCase(),
+      );
+      final existePorProveedor = codigosProveedor.contains(
+        producto.codigoBarras.trim(),
+      );
+
+      if (existePorCodigo || existePorProveedor) {
+        continue;
+      }
+
+      await guardarProducto(producto);
+      agregados.add(producto);
+      codigosExistentes.add(producto.codigo.trim().toLowerCase());
+      codigosProveedor.add(producto.codigoBarras.trim());
+    }
+
+    return agregados;
   }
 }

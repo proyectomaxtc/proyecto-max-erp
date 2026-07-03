@@ -226,6 +226,7 @@ class _CompraFormState extends ConsumerState<CompraForm> {
   Widget build(BuildContext context) {
     final productos = ref.watch(productoProvider).productos;
     final sucursal = ref.watch(productoProvider).sucursalSeleccionada;
+    final compact = MediaQuery.sizeOf(context).width < 760;
     final sucursalLabel = sucursal == Branches.casaCentral
         ? 'Casa Central Santa Fe'
         : 'Sucursal Alberdi';
@@ -261,26 +262,22 @@ class _CompraFormState extends ConsumerState<CompraForm> {
             ),
           ),
           const SizedBox(height: 18),
-          Row(
+          _ResponsiveFields(
+            compact: compact,
             children: [
-              Expanded(
-                child: TextFormField(
-                  controller: proveedorController,
-                  decoration: decoration("Proveedor"),
-                  validator: (value) => value == null || value.trim().isEmpty
-                      ? "Ingrese proveedor"
-                      : null,
-                ),
+              TextFormField(
+                controller: proveedorController,
+                decoration: decoration("Proveedor"),
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? "Ingrese proveedor"
+                    : null,
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: TextFormField(
-                  controller: responsableController,
-                  decoration: decoration("Responsable"),
-                  validator: (value) => value == null || value.trim().isEmpty
-                      ? "Ingrese responsable"
-                      : null,
-                ),
+              TextFormField(
+                controller: responsableController,
+                decoration: decoration("Responsable"),
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? "Ingrese responsable"
+                    : null,
               ),
             ],
           ),
@@ -302,60 +299,115 @@ class _CompraFormState extends ConsumerState<CompraForm> {
             ),
           ),
           const SizedBox(height: 18),
-          Row(
-            children: [
-              Expanded(
-                flex: 2,
-                child: DropdownButtonFormField<ProductoModel>(
-                  initialValue: productoSeleccionado,
-                  decoration: decoration("Producto"),
-                  dropdownColor: AppColors.surface,
-                  items: productos
-                      .map(
-                        (producto) => DropdownMenuItem(
-                          value: producto,
-                          child: Text(
-                            '${producto.codigo} - ${producto.nombre}',
-                          ),
+          compact
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    DropdownButtonFormField<ProductoModel>(
+                      initialValue: productoSeleccionado,
+                      decoration: decoration("Producto"),
+                      dropdownColor: AppColors.surface,
+                      isExpanded: true,
+                      items: productos
+                          .map(
+                            (producto) => DropdownMenuItem(
+                              value: producto,
+                              child: Text(
+                                '${producto.codigo} - ${producto.nombre}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (producto) {
+                        setState(() {
+                          productoSeleccionado = producto;
+                          costoController.text =
+                              producto?.costo.toString() ?? '';
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _ResponsiveFields(
+                      compact: compact,
+                      children: [
+                        TextFormField(
+                          controller: cantidadController,
+                          keyboardType: TextInputType.number,
+                          decoration: decoration("Cantidad"),
                         ),
-                      )
-                      .toList(),
-                  onChanged: (producto) {
-                    setState(() {
-                      productoSeleccionado = producto;
-                      costoController.text = producto?.costo.toString() ?? '';
-                    });
-                  },
+                        TextFormField(
+                          controller: costoController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          decoration: decoration("Costo"),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      onPressed: agregarItem,
+                      icon: const Icon(Icons.add),
+                      label: const Text("Agregar"),
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: DropdownButtonFormField<ProductoModel>(
+                        initialValue: productoSeleccionado,
+                        decoration: decoration("Producto"),
+                        dropdownColor: AppColors.surface,
+                        items: productos
+                            .map(
+                              (producto) => DropdownMenuItem(
+                                value: producto,
+                                child: Text(
+                                  '${producto.codigo} - ${producto.nombre}',
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (producto) {
+                          setState(() {
+                            productoSeleccionado = producto;
+                            costoController.text =
+                                producto?.costo.toString() ?? '';
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    SizedBox(
+                      width: 110,
+                      child: TextFormField(
+                        controller: cantidadController,
+                        keyboardType: TextInputType.number,
+                        decoration: decoration("Cantidad"),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    SizedBox(
+                      width: 140,
+                      child: TextFormField(
+                        controller: costoController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: decoration("Costo"),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    FilledButton.icon(
+                      onPressed: agregarItem,
+                      icon: const Icon(Icons.add),
+                      label: const Text("Agregar"),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 12),
-              SizedBox(
-                width: 110,
-                child: TextFormField(
-                  controller: cantidadController,
-                  keyboardType: TextInputType.number,
-                  decoration: decoration("Cantidad"),
-                ),
-              ),
-              const SizedBox(width: 12),
-              SizedBox(
-                width: 140,
-                child: TextFormField(
-                  controller: costoController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: decoration("Costo"),
-                ),
-              ),
-              const SizedBox(width: 12),
-              FilledButton.icon(
-                onPressed: agregarItem,
-                icon: const Icon(Icons.add),
-                label: const Text("Agregar"),
-              ),
-            ],
-          ),
           const SizedBox(height: 18),
           _CompraItems(
             items: items,
@@ -366,21 +418,16 @@ class _CompraFormState extends ConsumerState<CompraForm> {
             },
           ),
           const SizedBox(height: 18),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: TextFormField(
-                  controller: observacionesController,
-                  maxLines: 4,
-                  decoration: decoration("Observaciones"),
-                ),
-              ),
-              const SizedBox(width: 16),
-              SizedBox(
-                width: 260,
-                child: Column(
+          compact
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    TextFormField(
+                      controller: observacionesController,
+                      maxLines: 3,
+                      decoration: decoration("Observaciones"),
+                    ),
+                    const SizedBox(height: 14),
                     DropdownButtonFormField<String>(
                       initialValue: estado,
                       decoration: decoration("Estado"),
@@ -443,49 +490,187 @@ class _CompraFormState extends ConsumerState<CompraForm> {
                       },
                     ),
                     const SizedBox(height: 14),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: .12),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: AppColors.primary.withValues(alpha: .4),
-                        ),
+                    _TotalBox(total: total),
+                  ],
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: observacionesController,
+                        maxLines: 4,
+                        decoration: decoration("Observaciones"),
                       ),
-                      child: Text(
-                        CurrencyFormatter.format(total),
-                        textAlign: TextAlign.right,
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    ),
+                    const SizedBox(width: 16),
+                    SizedBox(
+                      width: 260,
+                      child: Column(
+                        children: [
+                          DropdownButtonFormField<String>(
+                            initialValue: estado,
+                            decoration: decoration("Estado"),
+                            dropdownColor: AppColors.surface,
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'Recibida',
+                                child: Text('Recibida'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Pendiente',
+                                child: Text('Pendiente'),
+                              ),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                estado = value ?? estado;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 14),
+                          TextFormField(
+                            controller: pagadoController,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            decoration: decoration("Pagado al proveedor"),
+                          ),
+                          const SizedBox(height: 14),
+                          TextFormField(
+                            controller: transporteController,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            decoration: decoration("Transporte contado"),
+                          ),
+                          const SizedBox(height: 14),
+                          DropdownButtonFormField<String>(
+                            initialValue: transporteMedioPago,
+                            decoration: decoration("Pago transporte"),
+                            dropdownColor: AppColors.surface,
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'Efectivo',
+                                child: Text('Efectivo'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Transferencia',
+                                child: Text('Transferencia'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Mercado Pago',
+                                child: Text('Mercado Pago'),
+                              ),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                transporteMedioPago =
+                                    value ?? transporteMedioPago;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 14),
+                          _TotalBox(total: total),
+                        ],
                       ),
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
           const SizedBox(height: 28),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              OutlinedButton.icon(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close),
-                label: const Text("Cancelar"),
-              ),
-              const SizedBox(width: 16),
-              FilledButton.icon(
-                onPressed: guardarCompra,
-                icon: const Icon(Icons.save_outlined),
-                label: const Text("Registrar Compra"),
-              ),
-            ],
-          ),
+          compact
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    FilledButton.icon(
+                      onPressed: guardarCompra,
+                      icon: const Icon(Icons.save_outlined),
+                      label: const Text("Registrar Compra"),
+                    ),
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close),
+                      label: const Text("Cancelar"),
+                    ),
+                  ],
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close),
+                      label: const Text("Cancelar"),
+                    ),
+                    const SizedBox(width: 16),
+                    FilledButton.icon(
+                      onPressed: guardarCompra,
+                      icon: const Icon(Icons.save_outlined),
+                      label: const Text("Registrar Compra"),
+                    ),
+                  ],
+                ),
         ],
+      ),
+    );
+  }
+}
+
+class _ResponsiveFields extends StatelessWidget {
+  final bool compact;
+  final List<Widget> children;
+
+  const _ResponsiveFields({required this.compact, required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    if (compact) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0) const SizedBox(height: 12),
+            children[i],
+          ],
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        for (var i = 0; i < children.length; i++) ...[
+          if (i > 0) const SizedBox(width: 16),
+          Expanded(child: children[i]),
+        ],
+      ],
+    );
+  }
+}
+
+class _TotalBox extends StatelessWidget {
+  final double total;
+
+  const _TotalBox({required this.total});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: .12),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.primary.withValues(alpha: .4)),
+      ),
+      child: Text(
+        CurrencyFormatter.format(total),
+        textAlign: TextAlign.right,
+        style: const TextStyle(
+          color: AppColors.textPrimary,
+          fontSize: 24,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
