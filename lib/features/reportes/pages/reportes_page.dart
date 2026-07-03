@@ -9,8 +9,7 @@ import '../../../shared/layout/main_layout.dart';
 import '../../../shared/widgets/cards/kpi_card.dart';
 import '../../../shared/widgets/layout/operational_card.dart';
 import '../../caja/providers/caja_provider.dart';
-import '../../clientes/providers/cliente_provider.dart';
-import '../../productos/providers/producto_provider.dart';
+import '../../compras/providers/compra_provider.dart';
 import '../../ventas/providers/venta_provider.dart';
 
 class ReportesPage extends ConsumerStatefulWidget {
@@ -27,25 +26,41 @@ class _ReportesPageState extends ConsumerState<ReportesPage> {
 
     Future.microtask(() {
       ref.read(ventaProvider.notifier).cargarVentas();
+      ref.read(compraProvider.notifier).cargarCompras();
       ref.read(cajaProvider.notifier).cargarMovimientos();
-      ref.read(clienteProvider.notifier).cargarClientes();
-      ref.read(productoProvider.notifier).cargarProductos();
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final ventas = ref.watch(ventaProvider);
+    final compras = ref.watch(compraProvider);
     final caja = ref.watch(cajaProvider);
-    final clientes = ref.watch(clienteProvider).clientes;
-    final productos = ref.watch(productoProvider).productos;
-    final activos = clientes.where((cliente) => cliente.activo).length;
-    final stockBajo = productos
-        .where(
-          (producto) =>
-              producto.stock > 0 && producto.stock <= producto.stockMinimo,
-        )
-        .length;
+    final ahora = DateTime.now();
+    final inicioMes = DateTime(ahora.year, ahora.month);
+    final finMes = DateTime(ahora.year, ahora.month + 1);
+    final ventasDelMes = ventas.ventas.where(
+      (venta) =>
+          venta.estado == 'Completada' &&
+          _inPeriod(venta.fecha, inicioMes, finMes),
+    );
+    final comprasDelMes = compras.compras.where(
+      (compra) =>
+          compra.estado == 'Recibida' &&
+          _inPeriod(compra.fecha, inicioMes, finMes),
+    );
+    final totalVentasMes = ventasDelMes.fold<double>(
+      0,
+      (total, venta) => total + venta.total,
+    );
+    final utilidadMes = ventasDelMes.fold<double>(
+      0,
+      (total, venta) => total + venta.rentabilidad,
+    );
+    final totalComprasMes = comprasDelMes.fold<double>(
+      0,
+      (total, compra) => total + compra.total,
+    );
 
     return MainLayout(
       title: "Reportes",
@@ -58,11 +73,31 @@ class _ReportesPageState extends ConsumerState<ReportesPage> {
               children: [
                 Expanded(
                   child: KpiCard(
-                    title: "Ventas",
-                    value: CurrencyFormatter.format(ventas.totalVendido),
+                    title: "Ventas del mes",
+                    value: CurrencyFormatter.format(totalVentasMes),
                     icon: Icons.sell_outlined,
                     color: AppColors.success,
-                    subtitle: "${ventas.ventas.length} operaciones",
+                    subtitle: "${ventasDelMes.length} operaciones",
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: KpiCard(
+                    title: "Compras del mes",
+                    value: CurrencyFormatter.format(totalComprasMes),
+                    icon: Icons.shopping_cart_outlined,
+                    color: AppColors.purchases,
+                    subtitle: "Compras recibidas",
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: KpiCard(
+                    title: "Utilidad del mes",
+                    value: CurrencyFormatter.format(utilidadMes),
+                    icon: Icons.trending_up,
+                    color: AppColors.success,
+                    subtitle: _periodLabel(inicioMes),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -75,26 +110,6 @@ class _ReportesPageState extends ConsumerState<ReportesPage> {
                     subtitle: caja.cajaAbierta
                         ? "Turno abierto"
                         : "Caja cerrada",
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: KpiCard(
-                    title: "Clientes activos",
-                    value: activos.toString(),
-                    icon: Icons.people_alt_outlined,
-                    color: AppColors.info,
-                    subtitle: "${clientes.length} clientes cargados",
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: KpiCard(
-                    title: "Stock bajo",
-                    value: stockBajo.toString(),
-                    icon: Icons.inventory_2_outlined,
-                    color: AppColors.warning,
-                    subtitle: "Productos a revisar",
                   ),
                 ),
               ],
@@ -144,5 +159,28 @@ class _ReportesPageState extends ConsumerState<ReportesPage> {
         ],
       ),
     );
+  }
+
+  bool _inPeriod(DateTime date, DateTime start, DateTime end) {
+    return !date.isBefore(start) && date.isBefore(end);
+  }
+
+  String _periodLabel(DateTime periodStart) {
+    final month = switch (periodStart.month) {
+      1 => 'Enero',
+      2 => 'Febrero',
+      3 => 'Marzo',
+      4 => 'Abril',
+      5 => 'Mayo',
+      6 => 'Junio',
+      7 => 'Julio',
+      8 => 'Agosto',
+      9 => 'Septiembre',
+      10 => 'Octubre',
+      11 => 'Noviembre',
+      _ => 'Diciembre',
+    };
+
+    return '$month ${periodStart.year}';
   }
 }

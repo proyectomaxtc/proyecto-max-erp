@@ -36,7 +36,7 @@ class DashboardBody extends ConsumerWidget {
               DashboardHeader(
                 title: "${_saludo()}, ${usuario?.nombre ?? 'Usuario'}",
                 subtitle:
-                    "Casa Central - Tucuman Cerraduras - ${usuario?.rol ?? 'Sin sesion'}",
+                    "Casa Central - Tucuman Cerraduras - ${usuario?.rol ?? 'Sin sesion'} - ${data.periodLabel}",
                 compact: compact,
               ),
               SizedBox(height: compact ? 10 : 30),
@@ -55,14 +55,14 @@ class DashboardBody extends ConsumerWidget {
                     value: CurrencyFormatter.format(data.sales),
                     icon: Icons.point_of_sale,
                     color: AppColors.sales,
-                    subtitle: "Ventas completadas",
+                    subtitle: "Ventas del mes",
                   ),
                   KpiCard(
                     title: "Compras",
                     value: CurrencyFormatter.format(data.purchases),
                     icon: Icons.shopping_cart,
                     color: AppColors.purchases,
-                    subtitle: "Compras recibidas",
+                    subtitle: "Compras del mes",
                   ),
                   KpiCard(
                     title: esPropietario ? "Utilidad" : "Clientes",
@@ -74,7 +74,7 @@ class DashboardBody extends ConsumerWidget {
                         : Icons.people_alt_outlined,
                     color: AppColors.success,
                     subtitle: esPropietario
-                        ? "Venta menos costo"
+                        ? "Utilidad del mes"
                         : "Cargados hoy",
                   ),
                 ],

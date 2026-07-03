@@ -1,14 +1,11 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/utils/pdf_saver.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../shared/layout/main_layout.dart';
 
@@ -30,6 +27,8 @@ class _ComprobantesPageState extends ConsumerState<ComprobantesPage> {
 
   String tipo = 'Remito';
   String? ultimoPdf;
+  String? ultimaUbicacion;
+  bool ultimoDescargado = false;
 
   double get total {
     return items.fold(0, (total, item) => total + item.subtotal);
@@ -254,25 +253,29 @@ class _ComprobantesPageState extends ConsumerState<ComprobantesPage> {
       ),
     );
 
-    final appDir = await getApplicationDocumentsDirectory();
-    final dir = Directory(p.join(appDir.path, 'proyecto_max', 'comprobantes'));
-    if (!await dir.exists()) {
-      await dir.create(recursive: true);
-    }
-
     final fileName =
         '${tipo.toLowerCase()}-${clienteController.text.trim().replaceAll(' ', '_')}-$numero.pdf';
-    final file = File(p.join(dir.path, fileName));
-    await file.writeAsBytes(await pdf.save());
+    final result = await savePdfBytes(
+      bytes: await pdf.save(),
+      fileName: fileName,
+      folderName: 'comprobantes',
+    );
 
     if (!mounted) {
       return;
     }
 
     setState(() {
-      ultimoPdf = file.path;
+      ultimoPdf = result.fileName;
+      ultimaUbicacion = result.location;
+      ultimoDescargado = result.downloaded;
     });
-    _mensaje('PDF generado correctamente', AppColors.success);
+    _mensaje(
+      result.downloaded
+          ? 'PDF descargado correctamente'
+          : 'PDF generado correctamente',
+      AppColors.success,
+    );
   }
 
   void agregarItem() {
@@ -598,21 +601,25 @@ class _ComprobantesPageState extends ConsumerState<ComprobantesPage> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Carpeta: ${p.dirname(ultimoPdf!)}',
+                            ultimoDescargado
+                                ? 'Ubicacion: ${ultimaUbicacion ?? 'Descargas del navegador'}'
+                                : 'Carpeta: ${ultimaUbicacion ?? '-'}',
                             style: const TextStyle(
                               color: AppColors.textSecondary,
                             ),
                           ),
                           const SizedBox(height: 4),
                           SelectableText(
-                            'Archivo: ${p.basename(ultimoPdf!)}',
+                            'Archivo: $ultimoPdf',
                             style: const TextStyle(
                               color: AppColors.textPrimary,
                             ),
                           ),
                           const SizedBox(height: 8),
-                          const Text(
-                            'En Windows busquelo en Documentos > proyecto_max > comprobantes.',
+                          Text(
+                            ultimoDescargado
+                                ? 'En web queda en la carpeta de descargas del navegador. Desde el celular puede compartirlo desde descargas.'
+                                : 'En Windows busquelo en Documentos > proyecto_max > comprobantes.',
                             style: TextStyle(
                               color: AppColors.textDisabled,
                               fontSize: 12,

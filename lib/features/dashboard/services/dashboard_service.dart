@@ -35,14 +35,20 @@ class DashboardService {
       ClienteModel.fromMap,
     );
 
+    final hoy = DateTime.now();
+    final inicioMes = DateTime(hoy.year, hoy.month);
+    final finMes = DateTime(hoy.year, hoy.month + 1);
     final saldoCaja = _saldoCajasAbiertas(turnos, movimientos);
     final ventasCompletadas = ventas.where(
-      (venta) => venta.estado == 'Completada',
+      (venta) =>
+          venta.estado == 'Completada' &&
+          _inPeriod(venta.fecha, inicioMes, finMes),
     );
     final comprasRecibidas = compras.where(
-      (compra) => compra.estado == 'Recibida',
+      (compra) =>
+          compra.estado == 'Recibida' &&
+          _inPeriod(compra.fecha, inicioMes, finMes),
     );
-    final hoy = DateTime.now();
 
     return DashboardStats(
       cash: saldoCaja,
@@ -58,6 +64,8 @@ class DashboardService {
         0,
         (total, venta) => total + venta.rentabilidad,
       ),
+      periodStart: inicioMes,
+      periodEnd: finMes,
       lowStockProducts: productos
           .where(
             (producto) =>
@@ -91,6 +99,10 @@ class DashboardService {
 
   bool _sameDay(DateTime a, DateTime b) {
     return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  bool _inPeriod(DateTime date, DateTime start, DateTime end) {
+    return !date.isBefore(start) && date.isBefore(end);
   }
 
   double _saldoCajasAbiertas(
