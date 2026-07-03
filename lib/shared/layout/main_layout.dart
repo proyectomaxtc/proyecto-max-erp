@@ -81,11 +81,7 @@ class _MobileNav extends StatelessWidget {
       const _MobileNavItem("Caja", Icons.point_of_sale_rounded, AppRoutes.caja),
       const _MobileNavItem("Servicios", Icons.key_rounded, AppRoutes.servicios),
       if (esPropietario)
-        const _MobileNavItem(
-          "Mas",
-          Icons.more_horiz_rounded,
-          AppRoutes.dashboard,
-        ),
+        const _MobileNavItem("Mas", Icons.more_horiz_rounded, ''),
     ];
 
     return NavigationBarTheme(
@@ -105,7 +101,15 @@ class _MobileNav extends StatelessWidget {
       child: NavigationBar(
         height: 62,
         selectedIndex: _selectedIndex(items, route),
-        onDestinationSelected: (index) => context.go(items[index].route),
+        onDestinationSelected: (index) {
+          final item = items[index];
+          if (item.route.isEmpty) {
+            _showMoreMenu(context, route);
+            return;
+          }
+
+          context.go(item.route);
+        },
         destinations: items
             .map(
               (item) => NavigationDestination(
@@ -122,6 +126,111 @@ class _MobileNav extends StatelessWidget {
     final index = items.indexWhere((item) => item.route == route);
     return index >= 0 ? index : items.length - 1;
   }
+
+  void _showMoreMenu(BuildContext context, String currentRoute) {
+    final items = [
+      const _MoreMenuItem(
+        "Dashboard",
+        Icons.dashboard_rounded,
+        AppRoutes.dashboard,
+      ),
+      const _MoreMenuItem(
+        "Clientes",
+        Icons.people_alt_rounded,
+        AppRoutes.clientes,
+      ),
+      const _MoreMenuItem(
+        "Inventario",
+        Icons.inventory_2_rounded,
+        AppRoutes.inventario,
+      ),
+      const _MoreMenuItem(
+        "Compras",
+        Icons.shopping_cart_rounded,
+        AppRoutes.compras,
+      ),
+      const _MoreMenuItem(
+        "Reportes",
+        Icons.bar_chart_rounded,
+        AppRoutes.reportes,
+      ),
+      const _MoreMenuItem(
+        "Comprobantes",
+        Icons.picture_as_pdf_rounded,
+        AppRoutes.comprobantes,
+      ),
+      const _MoreMenuItem(
+        "Configuracion",
+        Icons.settings_rounded,
+        AppRoutes.configuracion,
+      ),
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Mas modulos",
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                GridView.count(
+                  crossAxisCount: 2,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                  childAspectRatio: 2.8,
+                  children: items.map((item) {
+                    final selected = currentRoute == item.route;
+                    return OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        context.go(item.route);
+                      },
+                      style: OutlinedButton.styleFrom(
+                        alignment: Alignment.centerLeft,
+                        foregroundColor: selected
+                            ? Colors.black
+                            : AppColors.textPrimary,
+                        backgroundColor: selected
+                            ? AppColors.primary
+                            : AppColors.card,
+                        side: BorderSide(
+                          color: selected
+                              ? AppColors.primary
+                              : AppColors.border,
+                        ),
+                      ),
+                      icon: Icon(item.icon),
+                      label: Text(
+                        item.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 class _MobileNavItem {
@@ -130,4 +239,12 @@ class _MobileNavItem {
   final String route;
 
   const _MobileNavItem(this.label, this.icon, this.route);
+}
+
+class _MoreMenuItem {
+  final String label;
+  final IconData icon;
+  final String route;
+
+  const _MoreMenuItem(this.label, this.icon, this.route);
 }
