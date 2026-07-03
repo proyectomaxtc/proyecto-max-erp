@@ -1,3 +1,4 @@
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,6 +8,7 @@ import '../../../../shared/widgets/dialogs/app_dialog.dart';
 import '../../auth/providers/auth_provider.dart';
 
 import '../enums/producto_filter.dart';
+import '../models/producto_import_model.dart';
 import '../providers/producto_provider.dart';
 
 import 'producto_form.dart';
@@ -103,9 +105,9 @@ class ProductoHeader extends ConsumerWidget {
                     const SizedBox(height: 12),
                     if (esPropietario)
                       OutlinedButton.icon(
-                        onPressed: () => _importarCatalogoLcc(context, ref),
-                        icon: const Icon(Icons.download_outlined),
-                        label: const Text("Importar LCC"),
+                        onPressed: () => _abrirImportadorLista(context),
+                        icon: const Icon(Icons.upload_file_outlined),
+                        label: const Text("Importar lista"),
                       ),
                   ],
                 )
@@ -132,9 +134,9 @@ class ProductoHeader extends ConsumerWidget {
                       ),
                       const SizedBox(width: 10),
                       OutlinedButton.icon(
-                        icon: const Icon(Icons.download_outlined),
-                        label: const Text("Importar LCC"),
-                        onPressed: () => _importarCatalogoLcc(context, ref),
+                        icon: const Icon(Icons.upload_file_outlined),
+                        label: const Text("Importar lista"),
+                        onPressed: () => _abrirImportadorLista(context),
                       ),
                     ],
                   ],
@@ -151,6 +153,14 @@ class ProductoHeader extends ConsumerWidget {
     );
   }
 
+  void _abrirImportadorLista(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const _ImportarListaDialog(),
+    );
+  }
+
   void _abrirProducto(BuildContext context) {
     showDialog(
       context: context,
@@ -160,23 +170,280 @@ class ProductoHeader extends ConsumerWidget {
       },
     );
   }
+}
 
-  Future<void> _importarCatalogoLcc(BuildContext context, WidgetRef ref) async {
-    final cantidad = await ref
-        .read(productoProvider.notifier)
-        .importarCatalogoInicialLcc();
+class _ImportarListaDialog extends ConsumerStatefulWidget {
+  const _ImportarListaDialog();
 
-    if (!context.mounted) {
+  @override
+  ConsumerState<_ImportarListaDialog> createState() =>
+      _ImportarListaDialogState();
+}
+
+class _ImportarListaDialogState extends ConsumerState<_ImportarListaDialog> {
+  final proveedorController = TextEditingController();
+  final lineasController = TextEditingController();
+  String? archivoReferencia;
+  bool importando = false;
+
+  @override
+  void dispose() {
+    proveedorController.dispose();
+    lineasController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = _parsearLineas(lineasController.text);
+    final compact = MediaQuery.sizeOf(context).width < 760;
+
+    return Dialog(
+      backgroundColor: AppColors.surface,
+      insetPadding: EdgeInsets.all(compact ? 12 : 28),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 900,
+          maxHeight: MediaQuery.sizeOf(context).height * .9,
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(compact ? 16 : 22),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      "Importar lista",
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: importando ? null : () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                "Pegue los articulos con este formato: codigo; nombre; costo; marca; categoria. Si ya existe el mismo proveedor y codigo, se actualiza el costo y los datos.",
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: proveedorController,
+                decoration: _decoration("Proveedor"),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: importando ? null : _adjuntarReferencia,
+                    icon: const Icon(Icons.image_outlined),
+                    label: Text(
+                      archivoReferencia == null
+                          ? "Adjuntar foto/remito"
+                          : "Cambiar referencia",
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: importando ? null : _cargarEjemploLcc,
+                    icon: const Icon(Icons.receipt_long_outlined),
+                    label: const Text("Usar ejemplo LCC"),
+                  ),
+                ],
+              ),
+              if (archivoReferencia != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  "Referencia: $archivoReferencia",
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: AppColors.textSecondary),
+                ),
+              ],
+              const SizedBox(height: 12),
+              Expanded(
+                child: TextField(
+                  controller: lineasController,
+                  expands: true,
+                  minLines: null,
+                  maxLines: null,
+                  textAlignVertical: TextAlignVertical.top,
+                  decoration: _decoration(
+                    "codigo; nombre; costo; marca; categoria",
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Text(
+                  "${items.length} articulos validos detectados",
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: importando ? null : () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                    label: const Text("Cancelar"),
+                  ),
+                  const SizedBox(width: 12),
+                  FilledButton.icon(
+                    onPressed: importando || items.isEmpty
+                        ? null
+                        : () => _importar(items),
+                    icon: importando
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.upload_file_outlined),
+                    label: const Text("Importar"),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _decoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      filled: true,
+      fillColor: AppColors.card,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+    );
+  }
+
+  Future<void> _adjuntarReferencia() async {
+    const typeGroup = XTypeGroup(
+      label: 'Remitos o listas',
+      extensions: ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'csv', 'txt'],
+    );
+    final archivo = await openFile(acceptedTypeGroups: [typeGroup]);
+
+    if (archivo == null) {
       return;
     }
 
+    setState(() {
+      archivoReferencia = archivo.name;
+    });
+  }
+
+  void _cargarEjemploLcc() {
+    proveedorController.text = 'LCC - La casa de la cerradura';
+    lineasController.text = [
+      '04301; Andif 857-40 Cerradura pasador rectangular 4 placas angosta abierta; 14910; Andif; Cerraduras de aplicar',
+      '04545; Prive 200 Cerradura pasador rectangular 4 placas F-grande en bolsa; 13777.61; Prive; Cerraduras doble paleta',
+      '05968; Prive 207 Cerradura pasador rectangular 4 placas F-chico en bolsa; 12527.69; Prive; Cerraduras doble paleta',
+      '06833; Bronzen 805 Pasador con llave cruz cromo; 8500; Bronzen; Cerraduras de aplicar',
+    ].join('\n');
+    setState(() {});
+  }
+
+  List<ProductoImportItem> _parsearLineas(String texto) {
+    final items = <ProductoImportItem>[];
+
+    for (final linea in texto.split('\n')) {
+      final limpia = linea.trim();
+      if (limpia.isEmpty) {
+        continue;
+      }
+
+      final partes = limpia.contains(';')
+          ? limpia.split(';')
+          : limpia.contains('\t')
+          ? limpia.split('\t')
+          : limpia.split(',');
+
+      if (partes.length < 3) {
+        continue;
+      }
+
+      final costo = _parseMoney(partes[2]);
+      if (costo <= 0) {
+        continue;
+      }
+
+      items.add(
+        ProductoImportItem(
+          codigoProveedor: partes[0].trim(),
+          nombre: partes[1].trim(),
+          costo: costo,
+          marca: partes.length > 3 ? partes[3].trim() : '',
+          categoria: partes.length > 4 ? partes[4].trim() : 'Otros',
+        ),
+      );
+    }
+
+    return items;
+  }
+
+  double _parseMoney(String value) {
+    final raw = value.replaceAll('\$', '').replaceAll(' ', '');
+    final normalized = raw.contains(',')
+        ? raw.replaceAll('.', '').replaceAll(',', '.')
+        : raw;
+    return double.tryParse(normalized) ?? 0;
+  }
+
+  Future<void> _importar(List<ProductoImportItem> items) async {
+    final proveedor = proveedorController.text.trim();
+    if (proveedor.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.error,
+          content: Text('Ingrese el proveedor de la lista'),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      importando = true;
+    });
+
+    final resultado = await ref
+        .read(productoProvider.notifier)
+        .importarLista(proveedor: proveedor, items: items);
+
+    if (!mounted) {
+      return;
+    }
+
+    Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: cantidad > 0 ? AppColors.success : AppColors.info,
+        backgroundColor: AppColors.success,
         content: Text(
-          cantidad > 0
-              ? 'Se importaron $cantidad productos de LCC'
-              : 'El catalogo LCC ya estaba cargado',
+          'Lista importada: ${resultado.creados} nuevos, ${resultado.actualizados} actualizados, ${resultado.ignorados} ignorados',
         ),
       ),
     );

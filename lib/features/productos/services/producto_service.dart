@@ -3,6 +3,7 @@ import 'package:hive/hive.dart';
 import '../../../core/storage/cloud_json_store.dart';
 import '../../../core/storage/storage_boxes.dart';
 import '../../../core/storage/storage_service.dart';
+import '../models/producto_import_model.dart';
 import '../data/catalogo_inicial_lcc.dart';
 import '../models/producto_model.dart';
 
@@ -15,12 +16,7 @@ class ProductoService {
       box: _box,
     );
 
-    final productos = values.map(ProductoModel.fromMap).toList();
-    final agregados = await importarCatalogoInicialLcc(
-      productosActuales: productos,
-    );
-
-    return [...productos, ...agregados];
+    return values.map(ProductoModel.fromMap).toList();
   }
 
   Future<int> obtenerProximoNumero(String categoria) async {
@@ -103,5 +99,152 @@ class ProductoService {
     }
 
     return agregados;
+  }
+
+  Future<ProductoImportResult> importarLista({
+    required String proveedor,
+    required List<ProductoImportItem> items,
+    List<ProductoModel>? productosActuales,
+  }) async {
+    final productos = productosActuales ?? await obtenerProductos();
+    var creados = 0;
+    var actualizados = 0;
+    var ignorados = 0;
+
+    for (final item in items) {
+      if (item.codigoProveedor.trim().isEmpty ||
+          item.nombre.trim().isEmpty ||
+          item.costo <= 0) {
+        ignorados++;
+        continue;
+      }
+
+      final existente = _buscarExistente(
+        productos,
+        proveedor: proveedor,
+        codigoProveedor: item.codigoProveedor,
+      );
+
+      if (existente == null) {
+        final nuevo = _crearProductoImportado(proveedor: proveedor, item: item);
+        await guardarProducto(nuevo);
+        productos.add(nuevo);
+        creados++;
+        continue;
+      }
+
+      final actualizado = existente.copyWith(
+        nombre: item.nombre.trim(),
+        categoria: item.categoria.trim().isEmpty
+            ? existente.categoria
+            : item.categoria.trim(),
+        marca: item.marca.trim().isEmpty ? existente.marca : item.marca.trim(),
+        proveedor: proveedor.trim(),
+        costo: item.costo,
+        actualizado: DateTime.now(),
+      );
+      await actualizarProducto(actualizado);
+      final index = productos.indexWhere(
+        (producto) => producto.id == actualizado.id,
+      );
+      if (index >= 0) {
+        productos[index] = actualizado;
+      }
+      actualizados++;
+    }
+
+    return ProductoImportResult(
+      creados: creados,
+      actualizados: actualizados,
+      ignorados: ignorados,
+    );
+  }
+
+  ProductoModel? _buscarExistente(
+    List<ProductoModel> productos, {
+    required String proveedor,
+    required String codigoProveedor,
+  }) {
+    final proveedorNormalizado = proveedor.trim().toLowerCase();
+    final codigoNormalizado = codigoProveedor.trim().toLowerCase();
+    final codigoInterno = _codigoInterno(
+      proveedor,
+      codigoProveedor,
+    ).trim().toLowerCase();
+
+    for (final producto in productos) {
+      final mismoProveedor =
+          producto.proveedor.trim().toLowerCase() == proveedorNormalizado;
+      final mismoCodigoProveedor =
+          producto.codigoBarras.trim().toLowerCase() == codigoNormalizado;
+      final mismoCodigoInterno =
+          producto.codigo.trim().toLowerCase() == codigoInterno;
+
+      if (mismoProveedor && mismoCodigoProveedor) {
+        return producto;
+      }
+
+      if (mismoCodigoInterno) {
+        return producto;
+      }
+    }
+
+    return null;
+  }
+
+  ProductoModel _crearProductoImportado({
+    required String proveedor,
+    required ProductoImportItem item,
+  }) {
+    final ahora = DateTime.now();
+
+    return ProductoModel(
+      id: 'imp-${_prefijoProveedor(proveedor).toLowerCase()}-${item.codigoProveedor.trim()}',
+      codigo: _codigoInterno(proveedor, item.codigoProveedor),
+      codigoBarras: item.codigoProveedor.trim(),
+      nombre: item.nombre.trim(),
+      descripcion: 'Producto importado desde lista de proveedor.',
+      categoria: item.categoria.trim().isEmpty
+          ? 'Otros'
+          : item.categoria.trim(),
+      marca: item.marca.trim(),
+      proveedor: proveedor.trim(),
+      imagenPath: '',
+      costo: item.costo,
+      precio: 0,
+      stock: 0,
+      stockMinimo: 0,
+      stockPorSucursal: const {},
+      stockMinimoPorSucursal: const {},
+      ubicacion: '',
+      activo: true,
+      creado: ahora,
+      actualizado: ahora,
+    );
+  }
+
+  String _codigoInterno(String proveedor, String codigoProveedor) {
+    return '${_prefijoProveedor(proveedor)}-${codigoProveedor.trim()}';
+  }
+
+  String _prefijoProveedor(String proveedor) {
+    final limpio = proveedor
+        .trim()
+        .toUpperCase()
+        .replaceAll(RegExp(r'[^A-Z0-9]+'), ' ')
+        .trim();
+
+    if (limpio.isEmpty) {
+      return 'PROV';
+    }
+
+    final partes = limpio.split(RegExp(r'\s+'));
+    if (partes.length == 1) {
+      return partes.first.length <= 4
+          ? partes.first
+          : partes.first.substring(0, 4);
+    }
+
+    return partes.take(3).map((parte) => parte[0]).join();
   }
 }

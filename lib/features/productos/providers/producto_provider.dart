@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../enums/producto_filter.dart';
+import '../models/producto_import_model.dart';
 import '../models/producto_model.dart';
 import '../repository/producto_repository.dart';
 import '../services/producto_service.dart';
@@ -37,6 +38,20 @@ class ProductoNotifier extends StateNotifier<ProductoState> {
 
     await cargarProductos();
     return agregados.length;
+  }
+
+  Future<ProductoImportResult> importarLista({
+    required String proveedor,
+    required List<ProductoImportItem> items,
+  }) async {
+    final resultado = await repository.importarLista(
+      proveedor: proveedor,
+      items: items,
+      productosActuales: state.productos,
+    );
+
+    await cargarProductos();
+    return resultado;
   }
 
   Future<void> actualizarProducto(ProductoModel producto) async {

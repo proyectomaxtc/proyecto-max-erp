@@ -1,4 +1,5 @@
 import '../models/producto_model.dart';
+import '../models/producto_import_model.dart';
 import '../services/producto_service.dart';
 
 class ProductoRepository {
@@ -22,6 +23,18 @@ class ProductoRepository {
     List<ProductoModel>? productosActuales,
   }) {
     return service.importarCatalogoInicialLcc(
+      productosActuales: productosActuales,
+    );
+  }
+
+  Future<ProductoImportResult> importarLista({
+    required String proveedor,
+    required List<ProductoImportItem> items,
+    List<ProductoModel>? productosActuales,
+  }) {
+    return service.importarLista(
+      proveedor: proveedor,
+      items: items,
       productosActuales: productosActuales,
     );
   }
