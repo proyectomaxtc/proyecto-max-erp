@@ -9,6 +9,7 @@ import '../features/productos/pages/productos_page.dart';
 import '../features/caja/pages/caja_page.dart';
 import '../features/inventario/pages/inventario_page.dart';
 import '../features/compras/pages/compras_page.dart';
+import '../features/proveedores/pages/proveedores_page.dart';
 import '../features/ventas/pages/ventas_page.dart';
 import '../features/servicios/pages/servicios_page.dart';
 import '../features/reportes/pages/reportes_page.dart';
@@ -53,6 +54,11 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.compras,
       builder: (context, state) => const ComprasPage(),
+    ),
+
+    GoRoute(
+      path: AppRoutes.proveedores,
+      builder: (context, state) => const ProveedoresPage(),
     ),
 
     GoRoute(

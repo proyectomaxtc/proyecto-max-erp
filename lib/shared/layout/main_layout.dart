@@ -150,6 +150,11 @@ class _MobileNav extends StatelessWidget {
         AppRoutes.compras,
       ),
       const _MoreMenuItem(
+        "Proveedores",
+        Icons.local_shipping_rounded,
+        AppRoutes.proveedores,
+      ),
+      const _MoreMenuItem(
         "Reportes",
         Icons.bar_chart_rounded,
         AppRoutes.reportes,

@@ -10,6 +10,8 @@ class StorageBoxes {
   static const String compras = 'compras';
   static const String ventas = 'ventas';
   static const String servicios = 'servicios';
+  static const String gastosBalance = 'gastos_balance';
+  static const String liquidacionesSueldos = 'liquidaciones_sueldos';
   static const String configuracion = 'configuracion';
   static const String usuarios = 'usuarios';
   static const String notificaciones = 'notificaciones';

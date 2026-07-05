@@ -118,6 +118,7 @@ class _QuickActions extends StatelessWidget {
       _QuickAction("Abrir Caja", Icons.point_of_sale, AppRoutes.caja),
       _QuickAction("Nuevo Producto", Icons.inventory, AppRoutes.productos),
       _QuickAction("Compras", Icons.shopping_cart, AppRoutes.compras),
+      _QuickAction("Proveedores", Icons.local_shipping, AppRoutes.proveedores),
       _QuickAction(
         "Comprobantes",
         Icons.picture_as_pdf_outlined,

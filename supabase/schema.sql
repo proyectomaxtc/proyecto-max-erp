@@ -16,6 +16,12 @@ create table if not exists public.productos (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.proveedores (
+  id text primary key,
+  data jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.ventas (
   id text primary key,
   data jsonb not null,
@@ -58,6 +64,18 @@ create table if not exists public.notificaciones (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.gastos_balance (
+  id text primary key,
+  data jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.liquidaciones_sueldos (
+  id text primary key,
+  data jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.user_profiles (
   auth_id uuid primary key references auth.users(id) on delete cascade,
   app_user_id text unique not null,
@@ -71,6 +89,7 @@ create table if not exists public.user_profiles (
 alter table public.usuarios enable row level security;
 alter table public.clientes enable row level security;
 alter table public.productos enable row level security;
+alter table public.proveedores enable row level security;
 alter table public.ventas enable row level security;
 alter table public.compras enable row level security;
 alter table public.servicios enable row level security;
@@ -78,6 +97,8 @@ alter table public.caja enable row level security;
 alter table public.caja_turnos enable row level security;
 alter table public.configuracion enable row level security;
 alter table public.notificaciones enable row level security;
+alter table public.gastos_balance enable row level security;
+alter table public.liquidaciones_sueldos enable row level security;
 alter table public.user_profiles enable row level security;
 
 create or replace function public.current_user_profile()
@@ -190,6 +211,23 @@ with check (public.is_owner());
 
 create policy "productos owner delete"
 on public.productos for delete to authenticated
+using (public.is_owner());
+
+create policy "proveedores owner read"
+on public.proveedores for select to authenticated
+using (public.is_owner());
+
+create policy "proveedores owner insert"
+on public.proveedores for insert to authenticated
+with check (public.is_owner());
+
+create policy "proveedores owner update"
+on public.proveedores for update to authenticated
+using (public.is_owner())
+with check (public.is_owner());
+
+create policy "proveedores owner delete"
+on public.proveedores for delete to authenticated
 using (public.is_owner());
 
 create policy "ventas branch read"
@@ -325,4 +363,38 @@ with check (public.is_owner());
 
 create policy "notificaciones owner delete"
 on public.notificaciones for delete to authenticated
+using (public.is_owner());
+
+create policy "gastos balance owner read"
+on public.gastos_balance for select to authenticated
+using (public.is_owner());
+
+create policy "gastos balance owner insert"
+on public.gastos_balance for insert to authenticated
+with check (public.is_owner());
+
+create policy "gastos balance owner update"
+on public.gastos_balance for update to authenticated
+using (public.is_owner())
+with check (public.is_owner());
+
+create policy "gastos balance owner delete"
+on public.gastos_balance for delete to authenticated
+using (public.is_owner());
+
+create policy "liquidaciones owner read"
+on public.liquidaciones_sueldos for select to authenticated
+using (public.is_owner());
+
+create policy "liquidaciones owner insert"
+on public.liquidaciones_sueldos for insert to authenticated
+with check (public.is_owner());
+
+create policy "liquidaciones owner update"
+on public.liquidaciones_sueldos for update to authenticated
+using (public.is_owner())
+with check (public.is_owner());
+
+create policy "liquidaciones owner delete"
+on public.liquidaciones_sueldos for delete to authenticated
 using (public.is_owner());

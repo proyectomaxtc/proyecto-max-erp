@@ -62,6 +62,11 @@ const List<MenuItemData> menuItems = [
     route: AppRoutes.compras,
   ),
   MenuItemData(
+    title: "Proveedores",
+    icon: Icons.local_shipping_rounded,
+    route: AppRoutes.proveedores,
+  ),
+  MenuItemData(
     title: "Reportes",
     icon: Icons.bar_chart_rounded,
     route: AppRoutes.reportes,

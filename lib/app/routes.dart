@@ -15,6 +15,8 @@ class AppRoutes {
 
   static const compras = '/compras';
 
+  static const proveedores = '/proveedores';
+
   static const ventas = '/ventas';
 
   static const servicios = '/servicios';

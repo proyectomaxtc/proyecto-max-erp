@@ -27,6 +27,10 @@ class StorageService {
 
     await Hive.openBox(StorageBoxes.servicios);
 
+    await Hive.openBox(StorageBoxes.gastosBalance);
+
+    await Hive.openBox(StorageBoxes.liquidacionesSueldos);
+
     await Hive.openBox(StorageBoxes.configuracion);
 
     await Hive.openBox(StorageBoxes.usuarios);

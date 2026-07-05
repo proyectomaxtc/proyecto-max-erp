@@ -71,19 +71,17 @@ class _ComprasPageState extends ConsumerState<ComprasPage> {
                     value: CurrencyFormatter.format(compras.totalComprado),
                     icon: Icons.shopping_cart_checkout_outlined,
                     color: AppColors.success,
-                    subtitle:
-                        "Transporte: ${CurrencyFormatter.format(compras.totalTransportes)}",
+                    subtitle: "Mercaderia recibida",
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: KpiCard(
-                    title: "Deuda proveedores",
-                    value: CurrencyFormatter.format(compras.deudaTotal),
-                    icon: Icons.account_balance_wallet_outlined,
-                    color: AppColors.error,
-                    subtitle:
-                        "${compras.proveedoresConDeuda} proveedores pendientes",
+                    title: "Recibidas",
+                    value: compras.recibidas.toString(),
+                    icon: Icons.check_circle_outline,
+                    color: AppColors.info,
+                    subtitle: "Compras con stock ingresado",
                   ),
                 ),
                 const SizedBox(width: 16),
