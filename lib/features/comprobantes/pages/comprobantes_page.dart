@@ -7,6 +7,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/pdf_saver.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../productos/models/producto_model.dart';
+import '../../productos/providers/producto_provider.dart';
 import '../../../shared/layout/main_layout.dart';
 
 class ComprobantesPage extends ConsumerStatefulWidget {
@@ -46,6 +48,15 @@ class _ComprobantesPageState extends ConsumerState<ComprobantesPage> {
       item.dispose();
     }
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    Future.microtask(() {
+      ref.read(productoProvider.notifier).cargarProductos();
+    });
   }
 
   InputDecoration decoration(String label) {
@@ -395,6 +406,11 @@ class _ComprobantesPageState extends ConsumerState<ComprobantesPage> {
   @override
   Widget build(BuildContext context) {
     final esPropietario = ref.watch(authProvider).esPropietario;
+    final productos = ref.watch(productoProvider).productos;
+    final productosActivos =
+        productos.where((producto) => producto.activo).toList()..sort(
+          (a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()),
+        );
     final compact = MediaQuery.sizeOf(context).width < 760;
 
     if (!esPropietario) {
@@ -506,6 +522,7 @@ class _ComprobantesPageState extends ConsumerState<ComprobantesPage> {
                     (item) => _ItemRow(
                       compact: compact,
                       item: item,
+                      productos: productosActivos,
                       onChanged: () => setState(() {}),
                       onRemove: () => quitarItem(item),
                     ),
@@ -677,6 +694,7 @@ class _FieldSlot {
 }
 
 class _ComprobanteItem {
+  String? productoId;
   final descripcion = TextEditingController();
   final cantidadController = TextEditingController(text: '1');
   final precioController = TextEditingController(text: '0');
@@ -697,12 +715,14 @@ class _ComprobanteItem {
 class _ItemRow extends StatelessWidget {
   final bool compact;
   final _ComprobanteItem item;
+  final List<ProductoModel> productos;
   final VoidCallback onChanged;
   final VoidCallback onRemove;
 
   const _ItemRow({
     required this.compact,
     required this.item,
+    required this.productos,
     required this.onChanged,
     required this.onRemove,
   });
@@ -713,6 +733,52 @@ class _ItemRow extends StatelessWidget {
       filled: true,
       fillColor: AppColors.card,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+    );
+  }
+
+  Widget _productSelector() {
+    return DropdownButtonFormField<String>(
+      initialValue: item.productoId ?? '',
+      isExpanded: true,
+      dropdownColor: AppColors.surface,
+      decoration: decoration('Producto cargado'),
+      items: [
+        const DropdownMenuItem(
+          value: '',
+          child: Text('Carga manual / servicio'),
+        ),
+        ...productos.map(
+          (producto) => DropdownMenuItem(
+            value: producto.id,
+            child: Text(
+              '${producto.nombre} - ${CurrencyFormatter.format(producto.precio)}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+      ],
+      onChanged: (value) {
+        item.productoId = value == null || value.isEmpty ? null : value;
+        if (item.productoId == null) {
+          onChanged();
+          return;
+        }
+
+        final producto = productos.firstWhere(
+          (producto) => producto.id == item.productoId,
+          orElse: ProductoModel.empty,
+        );
+
+        if (producto.id.isEmpty) {
+          onChanged();
+          return;
+        }
+
+        item.descripcion.text = producto.nombre;
+        item.precioController.text = producto.precio.toStringAsFixed(0);
+        onChanged();
+      },
     );
   }
 
@@ -730,6 +796,8 @@ class _ItemRow extends StatelessWidget {
         ),
         child: Column(
           children: [
+            _productSelector(),
+            const SizedBox(height: 12),
             TextField(
               controller: item.descripcion,
               decoration: decoration('Articulo o servicio'),
@@ -788,56 +856,62 @@ class _ItemRow extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
+      child: Column(
         children: [
-          Expanded(
-            flex: 4,
-            child: TextField(
-              controller: item.descripcion,
-              decoration: decoration('Articulo o servicio'),
-              onChanged: (_) => onChanged(),
-            ),
-          ),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 110,
-            child: TextField(
-              controller: item.cantidadController,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
+          _productSelector(),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                flex: 4,
+                child: TextField(
+                  controller: item.descripcion,
+                  decoration: decoration('Articulo o servicio'),
+                  onChanged: (_) => onChanged(),
+                ),
               ),
-              decoration: decoration('Cant.'),
-              onChanged: (_) => onChanged(),
-            ),
-          ),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 150,
-            child: TextField(
-              controller: item.precioController,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 110,
+                child: TextField(
+                  controller: item.cantidadController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: decoration('Cant.'),
+                  onChanged: (_) => onChanged(),
+                ),
               ),
-              decoration: decoration('Precio'),
-              onChanged: (_) => onChanged(),
-            ),
-          ),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 140,
-            child: Text(
-              CurrencyFormatter.format(item.subtotal),
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.bold,
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 150,
+                child: TextField(
+                  controller: item.precioController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: decoration('Precio'),
+                  onChanged: (_) => onChanged(),
+                ),
               ),
-            ),
-          ),
-          IconButton(
-            tooltip: 'Quitar',
-            onPressed: onRemove,
-            icon: const Icon(Icons.delete_outline),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 140,
+                child: Text(
+                  CurrencyFormatter.format(item.subtotal),
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Quitar',
+                onPressed: onRemove,
+                icon: const Icon(Icons.delete_outline),
+              ),
+            ],
           ),
         ],
       ),

@@ -160,6 +160,11 @@ class _MobileNav extends StatelessWidget {
         AppRoutes.comprobantes,
       ),
       const _MoreMenuItem(
+        "Mayorista",
+        Icons.price_change_rounded,
+        AppRoutes.mayorista,
+      ),
+      const _MoreMenuItem(
         "Configuracion",
         Icons.settings_rounded,
         AppRoutes.configuracion,

@@ -123,6 +123,11 @@ class _QuickActions extends StatelessWidget {
         Icons.picture_as_pdf_outlined,
         AppRoutes.comprobantes,
       ),
+      _QuickAction(
+        "Mayorista",
+        Icons.price_change_rounded,
+        AppRoutes.mayorista,
+      ),
       _QuickAction("Nuevo Servicio", Icons.key, AppRoutes.servicios),
     ];
 

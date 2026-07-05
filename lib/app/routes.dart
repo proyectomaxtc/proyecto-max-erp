@@ -23,5 +23,7 @@ class AppRoutes {
 
   static const comprobantes = '/comprobantes';
 
+  static const mayorista = '/mayorista';
+
   static const configuracion = '/configuracion';
 }

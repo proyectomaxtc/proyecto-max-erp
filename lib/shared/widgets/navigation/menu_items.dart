@@ -72,6 +72,11 @@ const List<MenuItemData> menuItems = [
     route: AppRoutes.comprobantes,
   ),
   MenuItemData(
+    title: "Mayorista",
+    icon: Icons.price_change_rounded,
+    route: AppRoutes.mayorista,
+  ),
+  MenuItemData(
     title: "Configuracion",
     icon: Icons.settings_rounded,
     route: AppRoutes.configuracion,

@@ -13,6 +13,7 @@ import '../features/ventas/pages/ventas_page.dart';
 import '../features/servicios/pages/servicios_page.dart';
 import '../features/reportes/pages/reportes_page.dart';
 import '../features/comprobantes/pages/comprobantes_page.dart';
+import '../features/mayorista/pages/mayorista_page.dart';
 import '../features/configuracion/pages/configuracion_page.dart';
 
 final GoRouter appRouter = GoRouter(
@@ -72,6 +73,11 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.comprobantes,
       builder: (context, state) => const ComprobantesPage(),
+    ),
+
+    GoRoute(
+      path: AppRoutes.mayorista,
+      builder: (context, state) => const MayoristaPage(),
     ),
 
     GoRoute(

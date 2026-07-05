@@ -12,6 +12,7 @@ class ProductoModel {
   final String imagenPath;
   final double costo;
   final double precio;
+  final double precioMayorista;
   final double stock;
   final double stockMinimo;
   final Map<String, double> stockPorSucursal;
@@ -33,6 +34,7 @@ class ProductoModel {
     required this.imagenPath,
     required this.costo,
     required this.precio,
+    this.precioMayorista = 0,
     required this.stock,
     required this.stockMinimo,
     this.stockPorSucursal = const {},
@@ -55,6 +57,7 @@ class ProductoModel {
     String? imagenPath,
     double? costo,
     double? precio,
+    double? precioMayorista,
     double? stock,
     double? stockMinimo,
     Map<String, double>? stockPorSucursal,
@@ -76,6 +79,7 @@ class ProductoModel {
       imagenPath: imagenPath ?? this.imagenPath,
       costo: costo ?? this.costo,
       precio: precio ?? this.precio,
+      precioMayorista: precioMayorista ?? this.precioMayorista,
       stock: stock ?? this.stock,
       stockMinimo: stockMinimo ?? this.stockMinimo,
       stockPorSucursal: stockPorSucursal ?? this.stockPorSucursal,
@@ -101,6 +105,7 @@ class ProductoModel {
       'imagenPath': imagenPath,
       'costo': costo,
       'precio': precio,
+      'precioMayorista': precioMayorista,
       'stock': stock,
       'stockMinimo': stockMinimo,
       'stockPorSucursal': stockPorSucursal,
@@ -125,6 +130,7 @@ class ProductoModel {
       imagenPath: map['imagenPath'] as String? ?? '',
       costo: (map['costo'] as num?)?.toDouble() ?? 0,
       precio: (map['precio'] as num?)?.toDouble() ?? 0,
+      precioMayorista: (map['precioMayorista'] as num?)?.toDouble() ?? 0,
       stock: (map['stock'] as num?)?.toDouble() ?? 0,
       stockMinimo: (map['stockMinimo'] as num?)?.toDouble() ?? 0,
       stockPorSucursal: _doubleMap(
@@ -158,6 +164,7 @@ class ProductoModel {
       imagenPath: '',
       costo: 0,
       precio: 0,
+      precioMayorista: 0,
       stock: 0,
       stockMinimo: 0,
       stockPorSucursal: const {},
