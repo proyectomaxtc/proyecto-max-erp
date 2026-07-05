@@ -6,12 +6,16 @@ class VentaState {
   final String busqueda;
   final String filtroEstado;
   final String filtroSucursal;
+  final DateTime? fechaDesde;
+  final DateTime? fechaHasta;
 
   const VentaState({
     this.ventas = const [],
     this.busqueda = '',
     this.filtroEstado = 'Todas',
     this.filtroSucursal = Branches.casaCentral,
+    this.fechaDesde,
+    this.fechaHasta,
   });
 
   List<VentaModel> get ventasPorSucursal {
@@ -31,6 +35,14 @@ class VentaState {
           venta.medioPago.toLowerCase().contains(texto);
 
       if (!coincideBusqueda) {
+        return false;
+      }
+
+      if (fechaDesde != null && venta.fecha.isBefore(_inicioDia(fechaDesde!))) {
+        return false;
+      }
+
+      if (fechaHasta != null && venta.fecha.isAfter(_finDia(fechaHasta!))) {
         return false;
       }
 
@@ -64,12 +76,25 @@ class VentaState {
     String? busqueda,
     String? filtroEstado,
     String? filtroSucursal,
+    DateTime? fechaDesde,
+    DateTime? fechaHasta,
+    bool limpiarFechas = false,
   }) {
     return VentaState(
       ventas: ventas ?? this.ventas,
       busqueda: busqueda ?? this.busqueda,
       filtroEstado: filtroEstado ?? this.filtroEstado,
       filtroSucursal: filtroSucursal ?? this.filtroSucursal,
+      fechaDesde: limpiarFechas ? null : fechaDesde ?? this.fechaDesde,
+      fechaHasta: limpiarFechas ? null : fechaHasta ?? this.fechaHasta,
     );
+  }
+
+  DateTime _inicioDia(DateTime fecha) {
+    return DateTime(fecha.year, fecha.month, fecha.day);
+  }
+
+  DateTime _finDia(DateTime fecha) {
+    return DateTime(fecha.year, fecha.month, fecha.day, 23, 59, 59, 999);
   }
 }

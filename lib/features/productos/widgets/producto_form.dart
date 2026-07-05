@@ -139,8 +139,53 @@ class _ProductoFormState extends ConsumerState<ProductoForm> {
     });
   }
 
+  ProductoModel? _productoConNombreRepetido(String nombre) {
+    final nombreNormalizado = _normalizarNombreProducto(nombre);
+    if (nombreNormalizado.isEmpty) {
+      return null;
+    }
+
+    for (final producto in ref.read(productoProvider).productos) {
+      if (producto.id == widget.producto?.id) {
+        continue;
+      }
+
+      if (_normalizarNombreProducto(producto.nombre) == nombreNormalizado) {
+        return producto;
+      }
+    }
+
+    return null;
+  }
+
+  String _normalizarNombreProducto(String value) {
+    return value.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+  }
+
+  void _mostrarProductoRepetido(ProductoModel producto) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: AppColors.warning,
+        content: Text(
+          'Ya existe un producto con ese nombre: ${producto.nombre}. '
+          'Revise el catalogo antes de cargarlo de nuevo.',
+          style: const TextStyle(
+            color: AppColors.background,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> guardarProducto() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final productoRepetido = _productoConNombreRepetido(nombreController.text);
+    if (productoRepetido != null) {
+      _mostrarProductoRepetido(productoRepetido);
+      return;
+    }
 
     final ahora = DateTime.now();
     final categoria = categoriaSeleccionada == productoCategoriaOtra
@@ -291,6 +336,12 @@ class _ProductoFormState extends ConsumerState<ProductoForm> {
               if (value == null || value.trim().isEmpty) {
                 return "Ingrese un nombre";
               }
+
+              final productoRepetido = _productoConNombreRepetido(value);
+              if (productoRepetido != null) {
+                return "Ya existe un producto con ese nombre";
+              }
+
               return null;
             },
           ),

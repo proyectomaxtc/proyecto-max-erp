@@ -40,6 +40,8 @@ class VentasHeader extends ConsumerWidget {
                 _FiltroWrap(
                   children: _sucursalChips(ref, ventaState, auth, usuario),
                 ),
+                const SizedBox(height: 12),
+                _FechaFiltro(ref: ref),
                 const SizedBox(height: 14),
                 FilledButton.icon(
                   icon: const Icon(Icons.add),
@@ -69,6 +71,8 @@ class VentasHeader extends ConsumerWidget {
                     children: _sucursalChips(ref, ventaState, auth, usuario),
                   ),
                 ),
+                const SizedBox(width: 16),
+                _FechaFiltro(ref: ref),
                 const SizedBox(width: 16),
                 FilledButton.icon(
                   icon: const Icon(Icons.add),
@@ -150,6 +154,72 @@ class VentasHeader extends ConsumerWidget {
         );
       },
     );
+  }
+}
+
+class _FechaFiltro extends StatelessWidget {
+  final WidgetRef ref;
+
+  const _FechaFiltro({required this.ref});
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(ventaProvider);
+    final texto = _label(state.fechaDesde, state.fechaHasta);
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        OutlinedButton.icon(
+          onPressed: () => _seleccionarRango(context),
+          icon: const Icon(Icons.calendar_month_outlined),
+          label: Text(texto),
+        ),
+        if (state.fechaDesde != null || state.fechaHasta != null)
+          IconButton(
+            tooltip: "Limpiar fechas",
+            onPressed: () {
+              ref.read(ventaProvider.notifier).limpiarRangoFechas();
+            },
+            icon: const Icon(Icons.close),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _seleccionarRango(BuildContext context) async {
+    final state = ref.read(ventaProvider);
+    final now = DateTime.now();
+    final rango = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: now.add(const Duration(days: 1)),
+      initialDateRange: state.fechaDesde != null && state.fechaHasta != null
+          ? DateTimeRange(start: state.fechaDesde!, end: state.fechaHasta!)
+          : null,
+    );
+
+    if (rango == null) {
+      return;
+    }
+
+    ref.read(ventaProvider.notifier).cambiarRangoFechas(rango.start, rango.end);
+  }
+
+  String _label(DateTime? desde, DateTime? hasta) {
+    if (desde == null || hasta == null) {
+      return "Fecha";
+    }
+
+    return '${_fecha(desde)} - ${_fecha(hasta)}';
+  }
+
+  String _fecha(DateTime fecha) {
+    final dia = fecha.day.toString().padLeft(2, '0');
+    final mes = fecha.month.toString().padLeft(2, '0');
+    return '$dia/$mes';
   }
 }
 

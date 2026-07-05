@@ -32,6 +32,22 @@ class VentaNotifier extends StateNotifier<VentaState> {
     await cargarVentas();
   }
 
+  Future<void> actualizarVenta({
+    required VentaModel original,
+    required VentaModel actualizada,
+  }) async {
+    if (original.estado == 'Completada') {
+      await _devolverStock(original);
+    }
+
+    if (actualizada.estado == 'Completada') {
+      await _descontarStock(actualizada);
+    }
+
+    await repository.guardarVenta(actualizada);
+    await cargarVentas();
+  }
+
   Future<void> eliminarVenta(String id) async {
     VentaModel? venta;
     for (final item in state.ventas) {
@@ -78,6 +94,31 @@ class VentaNotifier extends StateNotifier<VentaState> {
     }
   }
 
+  Future<void> _descontarStock(VentaModel venta) async {
+    final productos = await productoService.obtenerProductos();
+
+    for (final ventaItem in venta.items) {
+      final producto = productos.firstWhere(
+        (producto) => producto.id == ventaItem.productoId,
+        orElse: () => ProductoModel.empty(),
+      );
+
+      if (producto.id.isEmpty) {
+        continue;
+      }
+
+      await productoService.actualizarProducto(
+        producto
+            .conStockSucursal(
+              sucursal: venta.sucursal,
+              stockSucursal:
+                  producto.stockEnSucursal(venta.sucursal) - ventaItem.cantidad,
+            )
+            .copyWith(actualizado: DateTime.now()),
+      );
+    }
+  }
+
   Future<String> generarNumeroVenta() async {
     final numero = await repository.obtenerProximoNumero();
     return 'VTA-${numero.toString().padLeft(6, '0')}';
@@ -93,5 +134,13 @@ class VentaNotifier extends StateNotifier<VentaState> {
 
   void cambiarSucursal(String sucursal) {
     state = state.copyWith(filtroSucursal: sucursal);
+  }
+
+  void cambiarRangoFechas(DateTime? desde, DateTime? hasta) {
+    state = state.copyWith(fechaDesde: desde, fechaHasta: hasta);
+  }
+
+  void limpiarRangoFechas() {
+    state = state.copyWith(limpiarFechas: true);
   }
 }

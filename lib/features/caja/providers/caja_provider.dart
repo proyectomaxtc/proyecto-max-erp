@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../servicios/services/servicio_service.dart';
+import '../../ventas/models/venta_model.dart';
 import '../../ventas/services/venta_service.dart';
 import '../models/caja_movimiento_model.dart';
 import '../models/caja_turno_model.dart';
@@ -38,6 +39,37 @@ class CajaNotifier extends StateNotifier<CajaState> {
 
   Future<void> agregarMovimiento(CajaMovimientoModel movimiento) async {
     await repository.guardarMovimiento(movimiento);
+    await cargarMovimientos();
+  }
+
+  Future<void> sincronizarMovimientoVenta(VentaModel venta) async {
+    await repository.eliminarMovimiento('${venta.id}-caja');
+
+    if (venta.estado != 'Completada') {
+      await cargarMovimientos();
+      return;
+    }
+
+    final turnos = await repository.obtenerTurnos();
+    final turno = _turnoParaFecha(turnos, venta.fecha);
+
+    await repository.guardarMovimiento(
+      CajaMovimientoModel(
+        id: '${venta.id}-caja',
+        tipo: 'Ingreso',
+        concepto: 'Venta ${venta.numero} - ${venta.clienteNombre}',
+        monto: venta.total,
+        medioPago: venta.medioPago,
+        referenciaId: venta.id,
+        origen: 'Venta',
+        turnoId: turno?.id ?? '',
+        responsable: turno?.responsable ?? 'Sistema',
+        bloqueado: true,
+        fecha: venta.fecha,
+        observaciones: venta.observaciones,
+      ),
+    );
+
     await cargarMovimientos();
   }
 

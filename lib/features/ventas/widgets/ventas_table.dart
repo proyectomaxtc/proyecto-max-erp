@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/currency_formatter.dart';
+import '../../../../shared/widgets/dialogs/app_dialog.dart';
 import '../../../../shared/widgets/tables/app_data_table.dart';
 import '../../caja/widgets/owner_authorization_dialog.dart';
 import '../models/venta_model.dart';
 import '../providers/venta_provider.dart';
+import 'venta_form.dart';
 
 class VentasTable extends ConsumerWidget {
   const VentasTable({super.key});
@@ -98,58 +100,91 @@ class VentasTable extends ConsumerWidget {
               ),
             ),
             DataCell(
-              IconButton(
-                tooltip: "Eliminar",
-                onPressed: () async {
-                  final autorizado = await OwnerAuthorizationDialog.request(
-                    context,
-                    reason:
-                        "Modificar o eliminar ventas registradas requiere autorizacion del propietario.",
-                  );
-
-                  if (!autorizado) {
-                    return;
-                  }
-
-                  if (!context.mounted) {
-                    return;
-                  }
-
-                  final eliminar = await showDialog<bool>(
-                    context: context,
-                    builder: (_) {
-                      return AlertDialog(
-                        title: const Text("Eliminar Venta"),
-                        content: Text(
-                          "Desea eliminar la venta ${venta.numero}?",
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: const Text("Cancelar"),
-                          ),
-                          FilledButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            child: const Text("Eliminar"),
-                          ),
-                        ],
-                      );
-                    },
-                  );
-
-                  if (eliminar == true) {
-                    await ref
-                        .read(ventaProvider.notifier)
-                        .eliminarVenta(venta.id);
-                  }
-                },
-                icon: const Icon(Icons.delete_outline),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: "Editar",
+                    onPressed: () => _editarVenta(context, venta),
+                    icon: const Icon(Icons.edit_outlined),
+                  ),
+                  IconButton(
+                    tooltip: "Eliminar",
+                    onPressed: () => _eliminarVenta(context, ref, venta),
+                    icon: const Icon(Icons.delete_outline),
+                  ),
+                ],
               ),
             ),
           ],
         );
       }).toList(),
     );
+  }
+
+  Future<void> _editarVenta(BuildContext context, VentaModel venta) async {
+    final autorizado = await OwnerAuthorizationDialog.request(
+      context,
+      reason:
+          "Modificar ventas registradas requiere autorizacion del propietario.",
+    );
+
+    if (!autorizado || !context.mounted) {
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) {
+        return AppDialog(
+          title: "Editar Venta",
+          maxWidth: 980,
+          maxHeight: 760,
+          child: VentaForm(venta: venta),
+        );
+      },
+    );
+  }
+
+  Future<void> _eliminarVenta(
+    BuildContext context,
+    WidgetRef ref,
+    VentaModel venta,
+  ) async {
+    final autorizado = await OwnerAuthorizationDialog.request(
+      context,
+      reason:
+          "Modificar o eliminar ventas registradas requiere autorizacion del propietario.",
+    );
+
+    if (!autorizado || !context.mounted) {
+      return;
+    }
+
+    final eliminar = await showDialog<bool>(
+      context: context,
+      builder: (_) {
+        return AlertDialog(
+          title: const Text("Eliminar Venta"),
+          content: Text("Desea eliminar la venta ${venta.numero}?"),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text("Cancelar"),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text("Eliminar"),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (eliminar == true) {
+      await ref.read(ventaProvider.notifier).eliminarVenta(venta.id);
+    }
   }
 
   String _fecha(DateTime fecha) {
