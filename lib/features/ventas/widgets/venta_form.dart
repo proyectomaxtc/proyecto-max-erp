@@ -647,14 +647,10 @@ class _VentaFormState extends ConsumerState<VentaForm> {
         }
       }
     }
-    final sucursal = _sucursalOperativa();
     final productos = ref
         .watch(productoProvider)
         .productos
-        .where(
-          (producto) =>
-              producto.activo && producto.stockEnSucursal(sucursal) > 0,
-        )
+        .where((producto) => producto.activo)
         .toList();
     final productosLlaves = _filtrarCopiasDeLlaves(productos);
 
@@ -761,6 +757,10 @@ class _VentaFormState extends ConsumerState<VentaForm> {
           ),
           SizedBox(height: compact ? 8 : 12),
           if (modoCopiasLlaves) ...[
+            if (productos.isEmpty) ...[
+              const _ProductLoadNotice(),
+              SizedBox(height: compact ? 10 : 12),
+            ],
             TextField(
               controller: busquedaCopiasController,
               decoration: decoration("Buscar copia de llave").copyWith(
@@ -787,6 +787,10 @@ class _VentaFormState extends ConsumerState<VentaForm> {
             ),
             SizedBox(height: compact ? 12 : 20),
           ] else ...[
+            if (productos.isEmpty) ...[
+              const _ProductLoadNotice(),
+              SizedBox(height: compact ? 10 : 12),
+            ],
             if (compact) ...[
               DropdownButtonFormField<ProductoModel>(
                 initialValue: productoSeleccionado,
@@ -877,10 +881,12 @@ class _VentaFormState extends ConsumerState<VentaForm> {
   }
 
   DropdownMenuItem<ProductoModel> _productoMenuItem(ProductoModel producto) {
+    final stock = producto.stockEnSucursal(_sucursalOperativa());
+
     return DropdownMenuItem(
       value: producto,
       child: Text(
-        '${producto.codigo} - ${producto.nombre}',
+        '${producto.codigo} - ${producto.nombre} · Stock ${stock.toStringAsFixed(0)}',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
@@ -1047,6 +1053,38 @@ class _KeyCopyGrid extends StatelessWidget {
           },
         ),
       ],
+    );
+  }
+}
+
+class _ProductLoadNotice extends StatelessWidget {
+  const _ProductLoadNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: .12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.warning.withValues(alpha: .45)),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.info_outline, color: AppColors.warning),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              "No se cargaron productos activos. Revise que haya productos cargados y que el usuario tenga acceso al catalogo.",
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
