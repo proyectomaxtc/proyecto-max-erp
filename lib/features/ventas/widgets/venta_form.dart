@@ -12,6 +12,7 @@ import 'package:pdf/widgets.dart' as pw;
 
 import '../../../../app/routes.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/branches.dart';
 import '../../../../core/constants/company.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -242,6 +243,28 @@ class _VentaFormState extends ConsumerState<VentaForm> {
         nombre: item.nombre,
         cantidad: cantidad,
         precioUnitario: item.precioUnitario,
+        costoUnitario: item.costoUnitario,
+      );
+    });
+  }
+
+  void actualizarPrecioItem(VentaItemModel item, double precio) {
+    if (precio < 0) {
+      return;
+    }
+
+    final index = items.indexOf(item);
+    if (index < 0) {
+      return;
+    }
+
+    setState(() {
+      items[index] = VentaItemModel(
+        productoId: item.productoId,
+        codigo: item.codigo,
+        nombre: item.nombre,
+        cantidad: item.cantidad,
+        precioUnitario: precio,
         costoUnitario: item.costoUnitario,
       );
     });
@@ -653,6 +676,7 @@ class _VentaFormState extends ConsumerState<VentaForm> {
         .where((producto) => producto.activo)
         .toList();
     final productosLlaves = _filtrarCopiasDeLlaves(productos);
+    final esPropietario = ref.watch(authProvider).esPropietario;
 
     final clienteField = DropdownButtonFormField<ClienteModel>(
       initialValue: clienteSeleccionado,
@@ -844,7 +868,9 @@ class _VentaFormState extends ConsumerState<VentaForm> {
           _ItemsTable(
             items: items,
             compact: compact,
+            puedeEditarPrecio: esPropietario,
             onCantidadChanged: actualizarCantidad,
+            onPrecioChanged: actualizarPrecioItem,
             onRemove: (item) {
               setState(() {
                 items.remove(item);
@@ -882,11 +908,13 @@ class _VentaFormState extends ConsumerState<VentaForm> {
 
   DropdownMenuItem<ProductoModel> _productoMenuItem(ProductoModel producto) {
     final stock = producto.stockEnSucursal(_sucursalOperativa());
+    final stockSantaFe = producto.stockEnSucursal(Branches.casaCentral);
+    final stockAlberdi = producto.stockEnSucursal(Branches.alberdi);
 
     return DropdownMenuItem(
       value: producto,
       child: Text(
-        '${producto.codigo} - ${producto.nombre} · Stock ${stock.toStringAsFixed(0)}',
+        '${producto.codigo} - ${producto.nombre} · Stock ${stock.toStringAsFixed(0)} · Santa Fe ${stockSantaFe.toStringAsFixed(0)} · Alberdi ${stockAlberdi.toStringAsFixed(0)}',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
@@ -1046,6 +1074,17 @@ class _KeyCopyGrid extends StatelessWidget {
                       CurrencyFormatter.format(producto.precio),
                       style: const TextStyle(color: AppColors.textSecondary),
                     ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'SF ${producto.stockEnSucursal(Branches.casaCentral).toStringAsFixed(0)} · ALB ${producto.stockEnSucursal(Branches.alberdi).toStringAsFixed(0)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textDisabled,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -1198,13 +1237,17 @@ class _ProductImage extends StatelessWidget {
 class _ItemsTable extends StatelessWidget {
   final List<VentaItemModel> items;
   final bool compact;
+  final bool puedeEditarPrecio;
   final void Function(VentaItemModel item, double cantidad) onCantidadChanged;
+  final void Function(VentaItemModel item, double precio) onPrecioChanged;
   final void Function(VentaItemModel item) onRemove;
 
   const _ItemsTable({
     required this.items,
     required this.compact,
+    required this.puedeEditarPrecio,
     required this.onCantidadChanged,
+    required this.onPrecioChanged,
     required this.onRemove,
   });
 
@@ -1308,6 +1351,16 @@ class _ItemsTable extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
+                    if (puedeEditarPrecio) ...[
+                      SizedBox(
+                        width: 120,
+                        child: _InlinePriceField(
+                          value: item.precioUnitario,
+                          onChanged: (precio) => onPrecioChanged(item, precio),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
                     Text(
                       CurrencyFormatter.format(item.subtotal),
                       style: const TextStyle(
@@ -1391,10 +1444,15 @@ class _ItemsTable extends StatelessWidget {
                 const SizedBox(width: 18),
                 SizedBox(
                   width: 110,
-                  child: Text(
-                    CurrencyFormatter.format(item.precioUnitario),
-                    textAlign: TextAlign.right,
-                  ),
+                  child: puedeEditarPrecio
+                      ? _InlinePriceField(
+                          value: item.precioUnitario,
+                          onChanged: (precio) => onPrecioChanged(item, precio),
+                        )
+                      : Text(
+                          CurrencyFormatter.format(item.precioUnitario),
+                          textAlign: TextAlign.right,
+                        ),
                 ),
                 const SizedBox(width: 18),
                 SizedBox(
@@ -1416,6 +1474,77 @@ class _ItemsTable extends StatelessWidget {
         }).toList(),
       ),
     );
+  }
+}
+
+class _InlinePriceField extends StatefulWidget {
+  final double value;
+  final ValueChanged<double> onChanged;
+
+  const _InlinePriceField({required this.value, required this.onChanged});
+
+  @override
+  State<_InlinePriceField> createState() => _InlinePriceFieldState();
+}
+
+class _InlinePriceFieldState extends State<_InlinePriceField> {
+  late final TextEditingController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = TextEditingController(text: widget.value.toStringAsFixed(0));
+  }
+
+  @override
+  void didUpdateWidget(covariant _InlinePriceField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value &&
+        _parseNumber(controller.text) != widget.value) {
+      controller.text = widget.value.toStringAsFixed(0);
+    }
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      textAlign: TextAlign.right,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      decoration: InputDecoration(
+        labelText: "Precio",
+        isDense: true,
+        filled: true,
+        fillColor: AppColors.surface,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+      onChanged: (value) {
+        widget.onChanged(_parseNumber(value));
+      },
+    );
+  }
+
+  double _parseNumber(String value) {
+    final clean = value.trim();
+    if (clean.isEmpty) {
+      return 0;
+    }
+
+    final hasComma = clean.contains(',');
+    final hasDot = clean.contains('.');
+    final normalized = hasComma
+        ? clean.replaceAll('.', '').replaceAll(',', '.')
+        : hasDot && RegExp(r'^\d{1,3}(\.\d{3})+$').hasMatch(clean)
+        ? clean.replaceAll('.', '')
+        : clean;
+    return double.tryParse(normalized) ?? 0;
   }
 }
 

@@ -38,6 +38,7 @@ class _ProductoFormState extends ConsumerState<ProductoForm> {
   final imagenPathController = TextEditingController();
   final costoController = TextEditingController();
   final precioController = TextEditingController();
+  final margenDeseadoController = TextEditingController();
   final stockSantaFeController = TextEditingController();
   final stockAlberdiController = TextEditingController();
   final stockMinimoSantaFeController = TextEditingController();
@@ -109,6 +110,7 @@ class _ProductoFormState extends ConsumerState<ProductoForm> {
     imagenPathController.dispose();
     costoController.dispose();
     precioController.dispose();
+    margenDeseadoController.dispose();
     stockSantaFeController.dispose();
     stockAlberdiController.dispose();
     stockMinimoSantaFeController.dispose();
@@ -130,13 +132,57 @@ class _ProductoFormState extends ConsumerState<ProductoForm> {
   void calcularMargen() {
     if (!mounted) return;
 
-    final costo = double.tryParse(costoController.text) ?? 0;
-    final precio = double.tryParse(precioController.text) ?? 0;
+    final costo = _parseNumber(costoController.text);
+    final precio = _parseNumber(precioController.text);
 
     setState(() {
       ganancia = precio - costo;
       margen = costo > 0 ? (ganancia / costo) * 100 : 0;
     });
+  }
+
+  void aplicarMargenDeseado() {
+    final costo = _parseNumber(costoController.text);
+    final margenDeseado = _parseNumber(margenDeseadoController.text);
+
+    if (costo <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.warning,
+          content: Text(
+            'Ingrese primero el costo del producto.',
+            style: TextStyle(
+              color: AppColors.background,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
+    final precioSugerido = costo * (1 + (margenDeseado / 100));
+
+    setState(() {
+      precioController.text = precioSugerido.toStringAsFixed(2);
+    });
+  }
+
+  double _parseNumber(String value) {
+    final clean = value.trim();
+    if (clean.isEmpty) {
+      return 0;
+    }
+
+    final hasComma = clean.contains(',');
+    final hasDot = clean.contains('.');
+    final normalized = hasComma
+        ? clean.replaceAll('.', '').replaceAll(',', '.')
+        : hasDot && RegExp(r'^\d{1,3}(\.\d{3})+$').hasMatch(clean)
+        ? clean.replaceAll('.', '')
+        : clean;
+
+    return double.tryParse(normalized) ?? 0;
   }
 
   ProductoModel? _productoConNombreRepetido(String nombre) {
@@ -192,13 +238,12 @@ class _ProductoFormState extends ConsumerState<ProductoForm> {
         ? categoriaController.text.trim()
         : (categoriaSeleccionada ?? '').trim();
     final stockPorSucursal = {
-      Branches.casaCentral: double.tryParse(stockSantaFeController.text) ?? 0,
-      Branches.alberdi: double.tryParse(stockAlberdiController.text) ?? 0,
+      Branches.casaCentral: _parseNumber(stockSantaFeController.text),
+      Branches.alberdi: _parseNumber(stockAlberdiController.text),
     };
     final minimoPorSucursal = {
-      Branches.casaCentral:
-          double.tryParse(stockMinimoSantaFeController.text) ?? 0,
-      Branches.alberdi: double.tryParse(stockMinimoAlberdiController.text) ?? 0,
+      Branches.casaCentral: _parseNumber(stockMinimoSantaFeController.text),
+      Branches.alberdi: _parseNumber(stockMinimoAlberdiController.text),
     };
     final stockTotal = stockPorSucursal.values.fold<double>(
       0,
@@ -219,8 +264,8 @@ class _ProductoFormState extends ConsumerState<ProductoForm> {
       marca: marcaController.text.trim(),
       proveedor: proveedorController.text.trim(),
       imagenPath: imagenPathController.text.trim(),
-      costo: double.tryParse(costoController.text) ?? 0,
-      precio: double.tryParse(precioController.text) ?? 0,
+      costo: _parseNumber(costoController.text),
+      precio: _parseNumber(precioController.text),
       stock: stockTotal,
       stockMinimo: minimoTotal,
       stockPorSucursal: stockPorSucursal,
@@ -467,6 +512,11 @@ class _ProductoFormState extends ConsumerState<ProductoForm> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          _MarginSetter(
+            controller: margenDeseadoController,
+            onAplicar: aplicarMargenDeseado,
           ),
           const SizedBox(height: 20),
           Card(
@@ -783,5 +833,58 @@ class _FotoProductoField extends StatelessWidget {
     }
 
     return p.basename(value);
+  }
+}
+
+class _MarginSetter extends StatelessWidget {
+  final TextEditingController controller;
+  final VoidCallback onAplicar;
+
+  const _MarginSetter({required this.controller, required this.onAplicar});
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < 620;
+    final field = TextField(
+      controller: controller,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      decoration: InputDecoration(
+        labelText: "Margen deseado %",
+        helperText: "Calcula precio sobre el costo cargado",
+        prefixIcon: const Icon(Icons.percent_rounded),
+        filled: true,
+        fillColor: AppColors.card,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      onSubmitted: (_) => onAplicar(),
+    );
+
+    final button = FilledButton.icon(
+      onPressed: onAplicar,
+      icon: const Icon(Icons.calculate_outlined),
+      label: const Text("Aplicar precio"),
+    );
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.primary.withValues(alpha: .35)),
+      ),
+      child: compact
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [field, const SizedBox(height: 10), button],
+            )
+          : Row(
+              children: [
+                Expanded(child: field),
+                const SizedBox(width: 12),
+                button,
+              ],
+            ),
+    );
   }
 }

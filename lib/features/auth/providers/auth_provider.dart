@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/network/supabase_auth_service.dart';
 import '../models/app_user_model.dart';
@@ -11,6 +12,7 @@ final authProvider = StateNotifierProvider<AuthNotifier, AuthState>(
 
 class AuthNotifier extends StateNotifier<AuthState> {
   final UserService service;
+  static const _sessionUserIdKey = 'auth_session_user_id';
 
   AuthNotifier(this.service) : super(const AuthState()) {
     cargarUsuarios();
@@ -18,7 +20,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> cargarUsuarios() async {
     final usuarios = await service.obtenerUsuarios();
-    state = state.copyWith(usuarios: usuarios);
+    final usuarioActual = state.usuario;
+    final usuarioRestaurado =
+        usuarioActual ?? await _restaurarUsuario(usuarios);
+
+    state = state.copyWith(usuarios: usuarios, usuario: usuarioRestaurado);
   }
 
   Future<bool> login({required String nombre, required String codigo}) async {
@@ -52,6 +58,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           usuarios: await service.obtenerUsuarios(),
           limpiarError: true,
         );
+        await _guardarSesion(cloudUser);
         return true;
       }
 
@@ -77,6 +84,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           usuarios: usuarios,
           limpiarError: true,
         );
+        await _guardarSesion(usuario);
         return true;
       }
     }
@@ -126,6 +134,34 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   void logout() {
     SupabaseAuthService.signOut();
+    _limpiarSesion();
     state = state.copyWith(limpiarUsuario: true);
+  }
+
+  Future<void> _guardarSesion(AppUserModel usuario) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_sessionUserIdKey, usuario.id);
+  }
+
+  Future<AppUserModel?> _restaurarUsuario(List<AppUserModel> usuarios) async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString(_sessionUserIdKey);
+    if (userId == null || userId.isEmpty) {
+      return null;
+    }
+
+    for (final usuario in usuarios) {
+      if (usuario.id == userId && usuario.activo) {
+        return usuario;
+      }
+    }
+
+    await prefs.remove(_sessionUserIdKey);
+    return null;
+  }
+
+  Future<void> _limpiarSesion() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_sessionUserIdKey);
   }
 }
