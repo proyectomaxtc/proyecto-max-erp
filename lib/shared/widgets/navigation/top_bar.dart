@@ -10,6 +10,7 @@ import '../../../features/caja/providers/caja_provider.dart';
 import '../../../features/clientes/providers/cliente_provider.dart';
 import '../../../features/notificaciones/models/app_notification_model.dart';
 import '../../../features/notificaciones/providers/notification_provider.dart';
+import '../../../features/productos/enums/producto_filter.dart';
 import '../../../features/productos/providers/producto_provider.dart';
 import '../../../features/ventas/providers/venta_provider.dart';
 
@@ -373,8 +374,7 @@ class _TopBarState extends ConsumerState<TopBar> {
                   trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                   onTap: () {
                     Navigator.pop(context);
-                    result.onOpen();
-                    context.go(result.route);
+                    _openSearchResult(result);
                   },
                 );
               },
@@ -460,9 +460,7 @@ class _TopBarState extends ConsumerState<TopBar> {
                               size: 14,
                             ),
                             onTap: () {
-                              _hideSearchPreview();
-                              result.onOpen();
-                              this.context.go(result.route);
+                              _openSearchResult(result);
                             },
                           );
                         },
@@ -483,6 +481,15 @@ class _TopBarState extends ConsumerState<TopBar> {
   void _hideSearchPreview() {
     searchOverlay?.remove();
     searchOverlay = null;
+  }
+
+  void _openSearchResult(_SearchResult result) {
+    _hideSearchPreview();
+    searchFocusNode.unfocus();
+    searchController.text = result.searchText;
+    context.go(result.route);
+
+    Future.microtask(result.onOpen);
   }
 
   List<_SearchResult> _searchResults(
@@ -546,8 +553,12 @@ class _TopBarState extends ConsumerState<TopBar> {
           subtitle:
               '${producto.codigo} - Stock ${producto.stockEnSucursal(sucursal).toStringAsFixed(0)} - ${CurrencyFormatter.format(producto.precio)}',
           route: AppRoutes.productos,
+          searchText: producto.nombre,
           onOpen: () {
-            ref.read(productoProvider.notifier).buscar(value);
+            ref
+                .read(productoProvider.notifier)
+                .cambiarFiltro(ProductoFilter.todos);
+            ref.read(productoProvider.notifier).buscar(producto.nombre);
           },
         ),
       ),
@@ -558,8 +569,9 @@ class _TopBarState extends ConsumerState<TopBar> {
           subtitle:
               '${venta.clienteNombre} - ${CurrencyFormatter.format(venta.total)} - ${venta.estado}',
           route: AppRoutes.ventas,
+          searchText: venta.numero,
           onOpen: () {
-            ref.read(ventaProvider.notifier).buscar(value);
+            ref.read(ventaProvider.notifier).buscar(venta.numero);
           },
         ),
       ),
@@ -569,8 +581,11 @@ class _TopBarState extends ConsumerState<TopBar> {
           title: '${cliente.nombre} ${cliente.apellido}'.trim(),
           subtitle: cliente.telefono.isEmpty ? cliente.email : cliente.telefono,
           route: AppRoutes.clientes,
+          searchText: '${cliente.nombre} ${cliente.apellido}'.trim(),
           onOpen: () {
-            ref.read(clienteProvider.notifier).buscar(value);
+            ref
+                .read(clienteProvider.notifier)
+                .buscar('${cliente.nombre} ${cliente.apellido}'.trim());
           },
         ),
       ),
@@ -697,6 +712,7 @@ class _SearchResult {
   final String title;
   final String subtitle;
   final String route;
+  final String searchText;
   final VoidCallback onOpen;
 
   const _SearchResult({
@@ -704,6 +720,7 @@ class _SearchResult {
     required this.title,
     required this.subtitle,
     required this.route,
+    required this.searchText,
     required this.onOpen,
   });
 }

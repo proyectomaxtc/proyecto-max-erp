@@ -52,9 +52,9 @@ class _ProductosPageState extends ConsumerState<ProductosPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const ProductoSummary(),
-              SizedBox(height: compact ? 10 : 20),
+              SizedBox(height: compact ? 8 : 12),
               const ProductoHeader(),
-              SizedBox(height: compact ? 10 : 20),
+              SizedBox(height: compact ? 8 : 12),
               const Expanded(child: ProductoTable()),
             ],
           ),

@@ -95,20 +95,31 @@ class ProductoHeader extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const ProductoSearch(),
-                    const SizedBox(height: 12),
-                    Wrap(spacing: 8, runSpacing: 8, children: filtros),
-                    const SizedBox(height: 12),
-                    FilledButton.icon(
-                      onPressed: () => _abrirListaCompleta(context),
-                      icon: const Icon(Icons.open_in_full_rounded),
-                      label: const Text("Lista completa"),
+                    const SizedBox(height: 10),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: filtros
+                            .map(
+                              (filtro) => Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: filtro,
+                              ),
+                            )
+                            .toList(),
+                      ),
                     ),
-                    const SizedBox(height: 12),
-                    if (esPropietario)
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: [
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        FilledButton.icon(
+                          onPressed: () => _abrirListaCompleta(context),
+                          icon: const Icon(Icons.open_in_full_rounded),
+                          label: const Text("Lista completa"),
+                        ),
+                        if (esPropietario) ...[
                           OutlinedButton.icon(
                             onPressed: () => _abrirActualizadorLlaves(context),
                             icon: const Icon(Icons.key_outlined),
@@ -120,41 +131,63 @@ class ProductoHeader extends ConsumerWidget {
                             label: const Text("Importar lista"),
                           ),
                         ],
-                      ),
+                      ],
+                    ),
                   ],
                 )
-              : Row(
+              : Column(
                   children: [
-                    const Expanded(flex: 2, child: ProductoSearch()),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      flex: 3,
-                      child: Wrap(spacing: 8, runSpacing: 8, children: filtros),
+                    Row(
+                      children: [
+                        const Expanded(flex: 3, child: ProductoSearch()),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          flex: 5,
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: filtros
+                                  .map(
+                                    (filtro) => Padding(
+                                      padding: const EdgeInsets.only(right: 8),
+                                      child: filtro,
+                                    ),
+                                  )
+                                  .toList(),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     if (esPropietario) ...[
-                      const SizedBox(width: 16),
-                      FilledButton.icon(
-                        icon: const Icon(Icons.add),
-                        label: const Text("Nuevo Producto"),
-                        onPressed: () => _abrirProducto(context),
-                      ),
-                      const SizedBox(width: 10),
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.open_in_full_rounded),
-                        label: const Text("Lista completa"),
-                        onPressed: () => _abrirListaCompleta(context),
-                      ),
-                      const SizedBox(width: 10),
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.key_outlined),
-                        label: const Text("Actualizar llaves"),
-                        onPressed: () => _abrirActualizadorLlaves(context),
-                      ),
-                      const SizedBox(width: 10),
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.upload_file_outlined),
-                        label: const Text("Importar lista"),
-                        onPressed: () => _abrirImportadorLista(context),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          FilledButton.icon(
+                            icon: const Icon(Icons.add),
+                            label: const Text("Nuevo Producto"),
+                            onPressed: () => _abrirProducto(context),
+                          ),
+                          const SizedBox(width: 10),
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.open_in_full_rounded),
+                            label: const Text("Lista completa"),
+                            onPressed: () => _abrirListaCompleta(context),
+                          ),
+                          const SizedBox(width: 10),
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.key_outlined),
+                            label: const Text("Actualizar llaves"),
+                            onPressed: () => _abrirActualizadorLlaves(context),
+                          ),
+                          const SizedBox(width: 10),
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.upload_file_outlined),
+                            label: const Text("Importar lista"),
+                            onPressed: () => _abrirImportadorLista(context),
+                          ),
+                        ],
                       ),
                     ],
                   ],

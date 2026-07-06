@@ -39,6 +39,7 @@ class _VentaFormState extends ConsumerState<VentaForm> {
   final _formKey = GlobalKey<FormState>();
   final descuentoController = TextEditingController(text: '0');
   final observacionesController = TextEditingController();
+  final busquedaCopiasController = TextEditingController();
 
   ClienteModel? clienteSeleccionado;
   ProductoModel? productoSeleccionado;
@@ -90,6 +91,7 @@ class _VentaFormState extends ConsumerState<VentaForm> {
   void dispose() {
     descuentoController.dispose();
     observacionesController.dispose();
+    busquedaCopiasController.dispose();
     super.dispose();
   }
 
@@ -654,7 +656,7 @@ class _VentaFormState extends ConsumerState<VentaForm> {
               producto.activo && producto.stockEnSucursal(sucursal) > 0,
         )
         .toList();
-    final productosLlaves = productos.where(_esProductoLlave).toList();
+    final productosLlaves = _filtrarCopiasDeLlaves(productos);
 
     final clienteField = DropdownButtonFormField<ClienteModel>(
       initialValue: clienteSeleccionado,
@@ -759,7 +761,30 @@ class _VentaFormState extends ConsumerState<VentaForm> {
           ),
           SizedBox(height: compact ? 8 : 12),
           if (modoCopiasLlaves) ...[
-            _KeyCopyGrid(productos: productosLlaves, onAdd: agregarProducto),
+            TextField(
+              controller: busquedaCopiasController,
+              decoration: decoration("Buscar copia de llave").copyWith(
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: busquedaCopiasController.text.trim().isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: "Limpiar busqueda",
+                        onPressed: () {
+                          setState(() {
+                            busquedaCopiasController.clear();
+                          });
+                        },
+                        icon: const Icon(Icons.close),
+                      ),
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+            SizedBox(height: compact ? 10 : 12),
+            _KeyCopyGrid(
+              productos: productosLlaves,
+              totalCopias: productos.where(_esProductoLlave).length,
+              onAdd: agregarProducto,
+            ),
             SizedBox(height: compact ? 12 : 20),
           ] else ...[
             if (compact) ...[
@@ -862,25 +887,65 @@ class _VentaFormState extends ConsumerState<VentaForm> {
     );
   }
 
+  List<ProductoModel> _filtrarCopiasDeLlaves(List<ProductoModel> productos) {
+    final texto = _normalizarTexto(busquedaCopiasController.text);
+
+    return productos.where((producto) {
+      if (!_esProductoLlave(producto)) {
+        return false;
+      }
+
+      if (texto.isEmpty) {
+        return true;
+      }
+
+      return _textoProducto(producto).contains(texto);
+    }).toList()..sort(
+      (a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()),
+    );
+  }
+
   bool _esProductoLlave(ProductoModel producto) {
-    final texto = [
-      producto.nombre,
-      producto.categoria,
-      producto.descripcion,
-      producto.marca,
-    ].join(' ').toLowerCase();
+    final texto = _textoProducto(producto);
 
     return texto.contains('llave') ||
+        texto.contains('llaves') ||
         texto.contains('copia') ||
-        texto.contains('duplicado');
+        texto.contains('copias') ||
+        texto.contains('duplicado') ||
+        texto.contains('duplicados') ||
+        texto.contains('blank');
+  }
+
+  String _textoProducto(ProductoModel producto) {
+    return _normalizarTexto(
+      [
+        producto.codigo,
+        producto.codigoBarras,
+        producto.nombre,
+        producto.categoria,
+        producto.descripcion,
+        producto.marca,
+        producto.proveedor,
+      ].join(' '),
+    );
+  }
+
+  String _normalizarTexto(String value) {
+    return value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
   }
 }
 
 class _KeyCopyGrid extends StatelessWidget {
   final List<ProductoModel> productos;
+  final int totalCopias;
   final void Function(ProductoModel producto) onAdd;
 
-  const _KeyCopyGrid({required this.productos, required this.onAdd});
+  const _KeyCopyGrid({
+    required this.productos,
+    required this.totalCopias,
+    required this.onAdd,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -894,73 +959,94 @@ class _KeyCopyGrid extends StatelessWidget {
           border: Border.all(color: AppColors.border),
         ),
         child: const Text(
-          "No hay productos marcados como llaves. Use categoria/nombre con 'llave', 'copia' o 'duplicado'.",
+          "No hay copias de llave para mostrar con esa busqueda.",
           textAlign: TextAlign.center,
           style: TextStyle(color: AppColors.textSecondary),
         ),
       );
     }
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 1.08,
-      ),
-      itemCount: productos.length,
-      itemBuilder: (context, index) {
-        final producto = productos[index];
+    final width = MediaQuery.sizeOf(context).width;
+    final compact = width < 760;
+    final columns = compact
+        ? 2
+        : width < 1100
+        ? 3
+        : 4;
 
-        return InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: () => onAdd(producto),
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.card,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Center(
-                    child: _ProductImage(path: producto.imagenPath),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  producto.codigo,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  producto.nombre,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  CurrencyFormatter.format(producto.precio),
-                  style: const TextStyle(color: AppColors.textSecondary),
-                ),
-              ],
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Mostrando ${productos.length} de $totalCopias copias de llave disponibles',
+          style: const TextStyle(
+            color: AppColors.textSecondary,
+            fontWeight: FontWeight.w600,
           ),
-        );
-      },
+        ),
+        const SizedBox(height: 10),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: compact ? .9 : 1.08,
+          ),
+          itemCount: productos.length,
+          itemBuilder: (context, index) {
+            final producto = productos[index];
+
+            return InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () => onAdd(producto),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Center(
+                        child: _ProductImage(path: producto.imagenPath),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      producto.codigo,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      producto.nombre,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      CurrencyFormatter.format(producto.precio),
+                      style: const TextStyle(color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 }

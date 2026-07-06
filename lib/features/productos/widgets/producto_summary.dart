@@ -97,7 +97,7 @@ class ProductoSummary extends ConsumerWidget {
         final tarjetas = [
           SizedBox(
             width: anchoTarjeta,
-            height: compacto ? 136 : 148,
+            height: compacto ? 102 : 98,
             child: KpiCard(
               title: "Productos activos",
               value: activos.toString(),
@@ -108,7 +108,7 @@ class ProductoSummary extends ConsumerWidget {
           ),
           SizedBox(
             width: anchoTarjeta,
-            height: compacto ? 136 : 148,
+            height: compacto ? 102 : 98,
             child: KpiCard(
               title: "Stock bajo",
               value: stockBajo.toString(),
@@ -119,7 +119,7 @@ class ProductoSummary extends ConsumerWidget {
           ),
           SizedBox(
             width: anchoTarjeta,
-            height: compacto ? 136 : 148,
+            height: compacto ? 102 : 98,
             child: KpiCard(
               title: "Sin stock",
               value: sinStock.toString(),
@@ -130,7 +130,7 @@ class ProductoSummary extends ConsumerWidget {
           ),
           SizedBox(
             width: anchoTarjeta,
-            height: compacto ? 136 : 148,
+            height: compacto ? 102 : 98,
             child: KpiCard(
               title: esPropietario ? "Valor inventario" : "Disponibles",
               value: esPropietario
@@ -152,7 +152,7 @@ class ProductoSummary extends ConsumerWidget {
         }
 
         return SizedBox(
-          height: 148,
+          height: 98,
           child: Row(
             children: [
               for (var index = 0; index < tarjetas.length; index++) ...[
