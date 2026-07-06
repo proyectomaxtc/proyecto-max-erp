@@ -19,14 +19,31 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> cargarUsuarios() async {
-    final usuarios = await service.obtenerUsuarios();
-    final usuarioActual = state.usuario;
-    final usuarioRestaurado =
-        usuarioActual ??
-        await _restaurarUsuario(usuarios) ??
-        await _restaurarUsuarioSupabase(usuarios);
+    try {
+      final usuarios = await service.obtenerUsuarios();
+      final usuarioActual = state.usuario;
+      final usuarioRestaurado =
+          usuarioActual ??
+          await _restaurarUsuario(usuarios) ??
+          await _restaurarUsuarioSupabase(usuarios);
 
-    state = state.copyWith(usuarios: usuarios, usuario: usuarioRestaurado);
+      state = state.copyWith(
+        usuarios: usuarios,
+        usuario: usuarioRestaurado,
+        cargandoSesion: false,
+      );
+    } catch (_) {
+      state = state.copyWith(cargandoSesion: false);
+    }
+  }
+
+  Future<bool> esPropietarioActual() async {
+    if (state.usuario?.esPropietario == true) {
+      return true;
+    }
+
+    await cargarUsuarios();
+    return state.usuario?.esPropietario == true;
   }
 
   Future<bool> login({required String nombre, required String codigo}) async {
@@ -59,6 +76,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           usuario: cloudUser,
           usuarios: await service.obtenerUsuarios(),
           limpiarError: true,
+          cargandoSesion: false,
         );
         await _guardarSesion(cloudUser);
         return true;
@@ -68,12 +86,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
         usuarios: usuarios,
         error:
             'El email inicio sesion en Supabase, pero falta asociarlo en user_profiles.',
+        cargandoSesion: false,
       );
       return false;
     }
 
     if (onlineLogin && signIn.error != null) {
-      state = state.copyWith(usuarios: usuarios, error: signIn.error);
+      state = state.copyWith(
+        usuarios: usuarios,
+        error: signIn.error,
+        cargandoSesion: false,
+      );
       return false;
     }
 
@@ -85,6 +108,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           usuario: usuario,
           usuarios: usuarios,
           limpiarError: true,
+          cargandoSesion: false,
         );
         await _guardarSesion(usuario);
         return true;
@@ -94,6 +118,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(
       usuarios: usuarios,
       error: 'Nombre o codigo incorrecto',
+      cargandoSesion: false,
     );
     return false;
   }
@@ -137,7 +162,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   void logout() {
     SupabaseAuthService.signOut();
     _limpiarSesion();
-    state = state.copyWith(limpiarUsuario: true);
+    state = state.copyWith(limpiarUsuario: true, cargandoSesion: false);
   }
 
   Future<void> _guardarSesion(AppUserModel usuario) async {

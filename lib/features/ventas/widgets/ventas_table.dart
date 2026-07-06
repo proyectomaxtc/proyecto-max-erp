@@ -128,7 +128,13 @@ class VentasTable extends ConsumerWidget {
     WidgetRef ref,
     VentaModel venta,
   ) async {
-    final esPropietario = ref.read(authProvider).esPropietario;
+    final esPropietario = await ref
+        .read(authProvider.notifier)
+        .esPropietarioActual();
+    if (!context.mounted) {
+      return;
+    }
+
     final autorizado =
         esPropietario ||
         await OwnerAuthorizationDialog.request(
@@ -160,7 +166,13 @@ class VentasTable extends ConsumerWidget {
     WidgetRef ref,
     VentaModel venta,
   ) async {
-    final esPropietario = ref.read(authProvider).esPropietario;
+    final esPropietario = await ref
+        .read(authProvider.notifier)
+        .esPropietarioActual();
+    if (!context.mounted) {
+      return;
+    }
+
     final autorizado =
         esPropietario ||
         await OwnerAuthorizationDialog.request(

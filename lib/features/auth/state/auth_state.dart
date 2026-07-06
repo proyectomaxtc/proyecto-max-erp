@@ -4,8 +4,14 @@ class AuthState {
   final AppUserModel? usuario;
   final List<AppUserModel> usuarios;
   final String? error;
+  final bool cargandoSesion;
 
-  const AuthState({this.usuario, this.usuarios = const [], this.error});
+  const AuthState({
+    this.usuario,
+    this.usuarios = const [],
+    this.error,
+    this.cargandoSesion = true,
+  });
 
   bool get autenticado => usuario != null;
 
@@ -15,6 +21,7 @@ class AuthState {
     AppUserModel? usuario,
     List<AppUserModel>? usuarios,
     String? error,
+    bool? cargandoSesion,
     bool limpiarUsuario = false,
     bool limpiarError = false,
   }) {
@@ -22,6 +29,7 @@ class AuthState {
       usuario: limpiarUsuario ? null : usuario ?? this.usuario,
       usuarios: usuarios ?? this.usuarios,
       error: limpiarError ? null : error ?? this.error,
+      cargandoSesion: cargandoSesion ?? this.cargandoSesion,
     );
   }
 }

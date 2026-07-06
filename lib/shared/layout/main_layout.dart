@@ -17,6 +17,27 @@ class MainLayout extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final compact = MediaQuery.sizeOf(context).width < 760;
+    final auth = ref.watch(authProvider);
+
+    if (auth.cargandoSesion) {
+      return const Scaffold(
+        backgroundColor: Color(0xFF111111),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!auth.autenticado) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          context.go(AppRoutes.login);
+        }
+      });
+
+      return const Scaffold(
+        backgroundColor: Color(0xFF111111),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
 
     if (compact) {
       return Scaffold(
@@ -31,9 +52,7 @@ class MainLayout extends ConsumerWidget {
             ],
           ),
         ),
-        bottomNavigationBar: _MobileNav(
-          esPropietario: ref.watch(authProvider).esPropietario,
-        ),
+        bottomNavigationBar: _MobileNav(esPropietario: auth.esPropietario),
       );
     }
 
