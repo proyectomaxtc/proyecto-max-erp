@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../app/routes.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/company.dart';
+import '../../../core/network/supabase_auth_service.dart';
 import '../providers/auth_provider.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -74,6 +75,26 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }
 
     await prefs.remove(_usuarioKey);
+  }
+
+  Future<void> _mostrarCambioPassword() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => ChangePasswordDialog(
+        initialEmail: nombreController.text.trim().contains('@')
+            ? nombreController.text.trim()
+            : '',
+      ),
+    );
+
+    if (!mounted || ok != true) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Contrasena actualizada. Ingrese con la nueva clave.'),
+      ),
+    );
+    codigoController.clear();
   }
 
   InputDecoration decoration({
@@ -253,6 +274,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               ),
             ),
           ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: _mostrarCambioPassword,
+              icon: const Icon(Icons.password_rounded),
+              label: const Text('Cambiar contrasena de email'),
+            ),
+          ),
           if (error != null) ...[
             const SizedBox(height: 14),
             Container(
@@ -420,6 +449,231 @@ class _AccessHint extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class ChangePasswordDialog extends StatefulWidget {
+  final String initialEmail;
+
+  const ChangePasswordDialog({super.key, this.initialEmail = ''});
+
+  @override
+  State<ChangePasswordDialog> createState() => _ChangePasswordDialogState();
+}
+
+class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
+  late final TextEditingController emailController;
+  final currentPasswordController = TextEditingController();
+  final newPasswordController = TextEditingController();
+  final repeatPasswordController = TextEditingController();
+  bool loading = false;
+  bool showCurrentPassword = false;
+  bool showNewPassword = false;
+  String? error;
+
+  @override
+  void initState() {
+    super.initState();
+    emailController = TextEditingController(text: widget.initialEmail);
+  }
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    currentPasswordController.dispose();
+    newPasswordController.dispose();
+    repeatPasswordController.dispose();
+    super.dispose();
+  }
+
+  InputDecoration _decoration({
+    required String label,
+    required IconData icon,
+    Widget? suffix,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon),
+      suffixIcon: suffix,
+      filled: true,
+      fillColor: AppColors.card,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: AppColors.border),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: AppColors.primary, width: 1.6),
+      ),
+    );
+  }
+
+  Future<void> _submit() async {
+    final newPassword = newPasswordController.text.trim();
+    final repeatedPassword = repeatPasswordController.text.trim();
+
+    if (newPassword != repeatedPassword) {
+      setState(() {
+        error = 'La nueva contrasena no coincide.';
+      });
+      return;
+    }
+
+    setState(() {
+      loading = true;
+      error = null;
+    });
+
+    final result = await SupabaseAuthService.changePassword(
+      email: emailController.text,
+      currentPassword: currentPasswordController.text,
+      newPassword: newPassword,
+    );
+
+    if (!mounted) return;
+
+    if (result == null) {
+      Navigator.of(context).pop(true);
+      return;
+    }
+
+    setState(() {
+      loading = false;
+      error = result;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final compact = width < 520;
+
+    return AlertDialog(
+      backgroundColor: AppColors.surface,
+      title: const Text('Cambiar contrasena'),
+      content: SizedBox(
+        width: compact ? width - 64 : 420,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Use el email de Supabase y la clave actual o provisoria. La nueva clave queda activa para futuros ingresos.',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 18),
+              TextField(
+                controller: emailController,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
+                decoration: _decoration(
+                  label: 'Email de Supabase',
+                  icon: Icons.alternate_email_rounded,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: currentPasswordController,
+                obscureText: !showCurrentPassword,
+                textInputAction: TextInputAction.next,
+                decoration: _decoration(
+                  label: 'Contrasena actual',
+                  icon: Icons.lock_outline,
+                  suffix: IconButton(
+                    tooltip: showCurrentPassword
+                        ? 'Ocultar contrasena'
+                        : 'Mostrar contrasena',
+                    onPressed: () {
+                      setState(() {
+                        showCurrentPassword = !showCurrentPassword;
+                      });
+                    },
+                    icon: Icon(
+                      showCurrentPassword
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: newPasswordController,
+                obscureText: !showNewPassword,
+                textInputAction: TextInputAction.next,
+                decoration: _decoration(
+                  label: 'Nueva contrasena',
+                  icon: Icons.password_rounded,
+                  suffix: IconButton(
+                    tooltip: showNewPassword
+                        ? 'Ocultar contrasena'
+                        : 'Mostrar contrasena',
+                    onPressed: () {
+                      setState(() {
+                        showNewPassword = !showNewPassword;
+                      });
+                    },
+                    icon: Icon(
+                      showNewPassword
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: repeatPasswordController,
+                obscureText: !showNewPassword,
+                onSubmitted: (_) => loading ? null : _submit(),
+                decoration: _decoration(
+                  label: 'Repetir nueva contrasena',
+                  icon: Icons.verified_user_outlined,
+                ),
+              ),
+              if (error != null) ...[
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withValues(alpha: .12),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.error),
+                  ),
+                  child: Text(
+                    error!,
+                    style: const TextStyle(
+                      color: AppColors.error,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: loading ? null : () => Navigator.of(context).pop(false),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton.icon(
+          onPressed: loading ? null : _submit,
+          icon: loading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.save_rounded),
+          label: Text(loading ? 'Guardando' : 'Actualizar'),
         ),
       ],
     );

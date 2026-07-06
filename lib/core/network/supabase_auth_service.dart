@@ -65,6 +65,57 @@ class SupabaseAuthService {
     }
   }
 
+  static Future<String?> changePassword({
+    required String email,
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final cleanEmail = email.trim().toLowerCase();
+    final cleanCurrentPassword = currentPassword.trim();
+    final cleanNewPassword = newPassword.trim();
+
+    if (!cleanEmail.contains('@')) {
+      return 'Ingrese el email de Supabase del usuario.';
+    }
+
+    if (cleanCurrentPassword.isEmpty) {
+      return 'Ingrese la contrasena actual o provisoria.';
+    }
+
+    if (cleanNewPassword.length < 6) {
+      return 'La nueva contrasena debe tener al menos 6 caracteres.';
+    }
+
+    if (!SupabaseConfig.isConfigured) {
+      return 'Netlify no tiene Supabase configurado. Revise SUPABASE_URL y SUPABASE_ANON_KEY.';
+    }
+
+    try {
+      await Supabase.instance.client.auth.signInWithPassword(
+        email: cleanEmail,
+        password: cleanCurrentPassword,
+      );
+      await Supabase.instance.client.auth.updateUser(
+        UserAttributes(password: cleanNewPassword),
+      );
+      return null;
+    } on AuthException catch (error) {
+      final message = error.message.toLowerCase();
+
+      if (message.contains('invalid login credentials')) {
+        return 'Email o contrasena actual incorrectos.';
+      }
+
+      if (message.contains('password')) {
+        return 'Supabase no acepto la nueva contrasena. Use al menos 6 caracteres.';
+      }
+
+      return error.message;
+    } catch (_) {
+      return 'No se pudo cambiar la contrasena. Revise la conexion.';
+    }
+  }
+
   static AppUserModel? matchUser({
     required List<AppUserModel> users,
     required String identifier,
