@@ -65,6 +65,30 @@ class SupabaseAuthService {
     }
   }
 
+  static String? currentAuthId() {
+    if (!SupabaseConfig.isConfigured) {
+      return null;
+    }
+
+    try {
+      return Supabase.instance.client.auth.currentUser?.id;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static String? currentEmail() {
+    if (!SupabaseConfig.isConfigured) {
+      return null;
+    }
+
+    try {
+      return Supabase.instance.client.auth.currentUser?.email;
+    } catch (_) {
+      return null;
+    }
+  }
+
   static Future<String?> changePassword({
     required String email,
     required String currentPassword,

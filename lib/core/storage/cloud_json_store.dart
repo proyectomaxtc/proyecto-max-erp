@@ -107,18 +107,19 @@ class CloudJsonStore {
     }
   }
 
-  static Future<void> delete({
+  static Future<bool> delete({
     required String table,
     required String id,
   }) async {
     if (!enabled) {
-      return;
+      return true;
     }
 
     try {
       await _client.from(table).delete().eq('id', id);
+      return true;
     } catch (_) {
-      return;
+      return false;
     }
   }
 

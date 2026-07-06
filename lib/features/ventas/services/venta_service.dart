@@ -29,10 +29,23 @@ class VentaService {
   }
 
   Future<void> eliminarVenta(String id) async {
+    final ventaEliminada = await CloudJsonStore.delete(
+      table: StorageBoxes.ventas,
+      id: id,
+    );
+    final cajaEliminada = await CloudJsonStore.delete(
+      table: StorageBoxes.caja,
+      id: '$id-caja',
+    );
+
+    if (CloudJsonStore.enabled && (!ventaEliminada || !cajaEliminada)) {
+      throw Exception(
+        'Supabase no permitio eliminar la venta. Revise permisos de propietario.',
+      );
+    }
+
     await _box.delete(id);
     await _cajaBox.delete('$id-caja');
-    await CloudJsonStore.delete(table: StorageBoxes.ventas, id: id);
-    await CloudJsonStore.delete(table: StorageBoxes.caja, id: '$id-caja');
   }
 
   Future<int> obtenerProximoNumero() async {

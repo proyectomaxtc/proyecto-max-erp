@@ -127,7 +127,7 @@ as $$
     from public.user_profiles
     where auth_id = auth.uid()
       and activo = true
-      and rol = 'Propietario'
+      and lower(trim(rol)) = 'propietario'
   )
 $$;
 

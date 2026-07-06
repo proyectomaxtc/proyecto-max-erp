@@ -23,7 +23,11 @@ class AppUserModel {
     required this.creado,
   });
 
-  bool get esPropietario => rol == 'Propietario';
+  bool get esPropietario => _normalizarRol(rol) == 'propietario';
+
+  static String _normalizarRol(String value) {
+    return value.trim().toLowerCase();
+  }
 
   AppUserModel copyWith({
     String? id,
@@ -70,10 +74,10 @@ class AppUserModel {
       codigo: map['codigo'] as String? ?? '',
       email: map['email'] as String? ?? '',
       authId: map['authId'] as String? ?? '',
-      rol: map['rol'] as String? ?? 'Empleado',
+      rol: (map['rol'] as String? ?? 'Empleado').trim(),
       sucursal:
           map['sucursal'] as String? ??
-          ((map['rol'] as String? ?? 'Empleado') == 'Propietario'
+          (_normalizarRol(map['rol'] as String? ?? 'Empleado') == 'propietario'
               ? Branches.casaCentral
               : Branches.alberdi),
       activo: map['activo'] as bool? ?? true,

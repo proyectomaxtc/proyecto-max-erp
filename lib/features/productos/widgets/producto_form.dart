@@ -254,6 +254,8 @@ class _ProductoFormState extends ConsumerState<ProductoForm> {
       (total, value) => total + value,
     );
 
+    final imagenPersistente = await _imagenPersistente();
+
     final producto = ProductoModel(
       id: widget.producto?.id ?? ahora.millisecondsSinceEpoch.toString(),
       codigo: codigoController.text.trim(),
@@ -263,7 +265,7 @@ class _ProductoFormState extends ConsumerState<ProductoForm> {
       categoria: categoria,
       marca: marcaController.text.trim(),
       proveedor: proveedorController.text.trim(),
-      imagenPath: imagenPathController.text.trim(),
+      imagenPath: imagenPersistente,
       costo: _parseNumber(costoController.text),
       precio: _parseNumber(precioController.text),
       stock: stockTotal,
@@ -352,6 +354,31 @@ class _ProductoFormState extends ConsumerState<ProductoForm> {
     setState(() {
       imagenPathController.text = destino.path;
     });
+  }
+
+  Future<String> _imagenPersistente() async {
+    final value = imagenPathController.text.trim();
+    if (value.isEmpty || value.startsWith('data:image/')) {
+      return value;
+    }
+
+    if (kIsWeb) {
+      return value;
+    }
+
+    final file = File(value);
+    if (!await file.exists()) {
+      return value;
+    }
+
+    final extension = p.extension(file.path).toLowerCase();
+    final mime = switch (extension) {
+      '.jpg' || '.jpeg' => 'image/jpeg',
+      '.webp' => 'image/webp',
+      _ => 'image/png',
+    };
+    final bytes = await file.readAsBytes();
+    return 'data:$mime;base64,${base64Encode(bytes)}';
   }
 
   void quitarFoto() {

@@ -22,7 +22,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final usuarios = await service.obtenerUsuarios();
     final usuarioActual = state.usuario;
     final usuarioRestaurado =
-        usuarioActual ?? await _restaurarUsuario(usuarios);
+        usuarioActual ??
+        await _restaurarUsuario(usuarios) ??
+        await _restaurarUsuarioSupabase(usuarios);
 
     state = state.copyWith(usuarios: usuarios, usuario: usuarioRestaurado);
   }
@@ -158,6 +160,35 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     await prefs.remove(_sessionUserIdKey);
     return null;
+  }
+
+  Future<AppUserModel?> _restaurarUsuarioSupabase(
+    List<AppUserModel> usuarios,
+  ) async {
+    final authId = SupabaseAuthService.currentAuthId();
+    final email = SupabaseAuthService.currentEmail();
+    if (authId == null || email == null) {
+      return null;
+    }
+
+    final cloudUser =
+        SupabaseAuthService.matchUser(
+          users: usuarios,
+          identifier: email,
+          authId: authId,
+        ) ??
+        await SupabaseAuthService.loadProfile(
+          identifier: email,
+          authId: authId,
+        );
+
+    if (cloudUser == null) {
+      return null;
+    }
+
+    await service.guardarUsuario(cloudUser);
+    await _guardarSesion(cloudUser);
+    return cloudUser;
   }
 
   Future<void> _limpiarSesion() async {

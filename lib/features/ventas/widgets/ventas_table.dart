@@ -194,7 +194,20 @@ class VentasTable extends ConsumerWidget {
     );
 
     if (eliminar == true) {
-      await ref.read(ventaProvider.notifier).eliminarVenta(venta.id);
+      try {
+        await ref.read(ventaProvider.notifier).eliminarVenta(venta.id);
+      } catch (error) {
+        if (!context.mounted) {
+          return;
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.error,
+            content: Text(error.toString().replaceFirst('Exception: ', '')),
+          ),
+        );
+      }
     }
   }
 
