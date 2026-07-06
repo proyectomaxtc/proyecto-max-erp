@@ -60,6 +60,23 @@ class ProductoNotifier extends StateNotifier<ProductoState> {
     await cargarProductos();
   }
 
+  Future<int> actualizarLlavesDoblePaleta({
+    required double costo,
+    required double precio,
+  }) async {
+    final productos = state.productos.where(_esLlaveDoblePaleta).toList();
+    final ahora = DateTime.now();
+
+    for (final producto in productos) {
+      await repository.actualizarProducto(
+        producto.copyWith(costo: costo, precio: precio, actualizado: ahora),
+      );
+    }
+
+    await cargarProductos();
+    return productos.length;
+  }
+
   Future<void> eliminarProducto(String id) async {
     await repository.eliminarProducto(id);
 
@@ -112,5 +129,20 @@ class ProductoNotifier extends StateNotifier<ProductoState> {
     final numero = await repository.obtenerProximoNumero(categoria);
 
     return ProductCodeGenerator.generate(categoria: categoria, numero: numero);
+  }
+
+  bool _esLlaveDoblePaleta(ProductoModel producto) {
+    final texto = [
+      producto.nombre,
+      producto.categoria,
+      producto.descripcion,
+    ].join(' ').toLowerCase();
+
+    final esLlave =
+        texto.contains('llave') ||
+        texto.contains('copia') ||
+        texto.contains('duplicado');
+
+    return esLlave && texto.contains('doble paleta');
   }
 }

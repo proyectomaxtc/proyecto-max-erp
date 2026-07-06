@@ -9,6 +9,7 @@ import '../../auth/providers/auth_provider.dart';
 
 import '../enums/producto_filter.dart';
 import '../models/producto_import_model.dart';
+import '../models/producto_model.dart';
 import '../providers/producto_provider.dart';
 
 import 'producto_form.dart';
@@ -104,10 +105,21 @@ class ProductoHeader extends ConsumerWidget {
                     ),
                     const SizedBox(height: 12),
                     if (esPropietario)
-                      OutlinedButton.icon(
-                        onPressed: () => _abrirImportadorLista(context),
-                        icon: const Icon(Icons.upload_file_outlined),
-                        label: const Text("Importar lista"),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: () => _abrirActualizadorLlaves(context),
+                            icon: const Icon(Icons.key_outlined),
+                            label: const Text("Actualizar llaves"),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () => _abrirImportadorLista(context),
+                            icon: const Icon(Icons.upload_file_outlined),
+                            label: const Text("Importar lista"),
+                          ),
+                        ],
                       ),
                   ],
                 )
@@ -131,6 +143,12 @@ class ProductoHeader extends ConsumerWidget {
                         icon: const Icon(Icons.open_in_full_rounded),
                         label: const Text("Lista completa"),
                         onPressed: () => _abrirListaCompleta(context),
+                      ),
+                      const SizedBox(width: 10),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.key_outlined),
+                        label: const Text("Actualizar llaves"),
+                        onPressed: () => _abrirActualizadorLlaves(context),
                       ),
                       const SizedBox(width: 10),
                       OutlinedButton.icon(
@@ -161,6 +179,14 @@ class ProductoHeader extends ConsumerWidget {
     );
   }
 
+  void _abrirActualizadorLlaves(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const _ActualizarLlavesDialog(),
+    );
+  }
+
   void _abrirProducto(BuildContext context) {
     showDialog(
       context: context,
@@ -168,6 +194,219 @@ class ProductoHeader extends ConsumerWidget {
       builder: (_) {
         return const AppDialog(title: "Nuevo Producto", child: ProductoForm());
       },
+    );
+  }
+}
+
+class _ActualizarLlavesDialog extends ConsumerStatefulWidget {
+  const _ActualizarLlavesDialog();
+
+  @override
+  ConsumerState<_ActualizarLlavesDialog> createState() =>
+      _ActualizarLlavesDialogState();
+}
+
+class _ActualizarLlavesDialogState
+    extends ConsumerState<_ActualizarLlavesDialog> {
+  final costoController = TextEditingController();
+  final precioController = TextEditingController();
+  final formKey = GlobalKey<FormState>();
+  bool guardando = false;
+
+  @override
+  void dispose() {
+    costoController.dispose();
+    precioController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final productos = ref.watch(productoProvider).productos;
+    final cantidad = productos.where(_esLlaveDoblePaleta).length;
+    final compact = MediaQuery.sizeOf(context).width < 760;
+
+    return Dialog(
+      backgroundColor: AppColors.surface,
+      insetPadding: EdgeInsets.all(compact ? 12 : 28),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Padding(
+          padding: EdgeInsets.all(compact ? 16 : 22),
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        "Actualizar llaves doble paleta",
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: guardando
+                          ? null
+                          : () => Navigator.pop(context),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  cantidad == 1
+                      ? "Se actualizara solo 1 producto detectado como llave doble paleta."
+                      : "Se actualizaran solo $cantidad productos detectados como llaves doble paleta.",
+                  style: const TextStyle(color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: costoController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: _decoration("Nuevo costo"),
+                  validator: _validarImporte,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: precioController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: _decoration("Nuevo precio venta"),
+                  validator: _validarImporte,
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: .12),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.primary.withValues(alpha: .45),
+                    ),
+                  ),
+                  child: const Text(
+                    "Esto no modifica ventas anteriores. Solo cambia el costo y precio para futuras ventas. No afecta otros modelos de llaves que no figuren como doble paleta.",
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: guardando
+                          ? null
+                          : () => Navigator.pop(context),
+                      icon: const Icon(Icons.close),
+                      label: const Text("Cancelar"),
+                    ),
+                    const SizedBox(width: 12),
+                    FilledButton.icon(
+                      onPressed: guardando || cantidad == 0 ? null : _guardar,
+                      icon: guardando
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.save_outlined),
+                      label: const Text("Aplicar"),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _decoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      filled: true,
+      fillColor: AppColors.card,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+    );
+  }
+
+  String? _validarImporte(String? value) {
+    final importe = _parseMoney(value ?? '');
+    if (importe <= 0) {
+      return "Ingrese un importe mayor a 0";
+    }
+
+    return null;
+  }
+
+  double _parseMoney(String value) {
+    final raw = value.replaceAll('\$', '').replaceAll(' ', '');
+    final normalized = raw.contains(',')
+        ? raw.replaceAll('.', '').replaceAll(',', '.')
+        : raw;
+    return double.tryParse(normalized) ?? 0;
+  }
+
+  bool _esLlaveDoblePaleta(ProductoModel producto) {
+    final texto = [
+      producto.nombre,
+      producto.categoria,
+      producto.descripcion,
+    ].join(' ').toLowerCase();
+
+    final esLlave =
+        texto.contains('llave') ||
+        texto.contains('copia') ||
+        texto.contains('duplicado');
+
+    return esLlave && texto.contains('doble paleta');
+  }
+
+  Future<void> _guardar() async {
+    if (!formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      guardando = true;
+    });
+
+    final cantidad = await ref
+        .read(productoProvider.notifier)
+        .actualizarLlavesDoblePaleta(
+          costo: _parseMoney(costoController.text),
+          precio: _parseMoney(precioController.text),
+        );
+
+    if (!mounted) {
+      return;
+    }
+
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: AppColors.success,
+        content: Text(
+          cantidad == 1
+              ? "Se actualizo 1 llave doble paleta"
+              : "Se actualizaron $cantidad llaves doble paleta",
+        ),
+      ),
     );
   }
 }
