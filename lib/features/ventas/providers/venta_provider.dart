@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/storage/storage_boxes.dart';
+import '../../../core/storage/storage_service.dart';
 import '../../productos/models/producto_model.dart';
 import '../../productos/services/producto_service.dart';
 import '../models/venta_model.dart';
@@ -66,11 +68,28 @@ class VentaNotifier extends StateNotifier<VentaState> {
       ventas: state.ventas.where((item) => item.id != id).toList(),
     );
 
-    if (venta != null && venta.estado == 'Completada') {
+    if (venta != null &&
+        venta.estado == 'Completada' &&
+        !_stockYaDevueltoPorEliminacion(venta.id)) {
       await _devolverStock(venta);
+      await _marcarStockDevueltoPorEliminacion(venta.id);
     }
 
     await cargarVentas();
+  }
+
+  bool _stockYaDevueltoPorEliminacion(String ventaId) {
+    final box = StorageService.box(StorageBoxes.configuracion);
+    return box.get(_stockDevueltoKey(ventaId)) == true;
+  }
+
+  Future<void> _marcarStockDevueltoPorEliminacion(String ventaId) async {
+    final box = StorageService.box(StorageBoxes.configuracion);
+    await box.put(_stockDevueltoKey(ventaId), true);
+  }
+
+  String _stockDevueltoKey(String ventaId) {
+    return 'venta_stock_devuelto_al_eliminar_$ventaId';
   }
 
   Future<void> _devolverStock(VentaModel venta) async {
