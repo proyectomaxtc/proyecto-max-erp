@@ -20,11 +20,15 @@ class CloudJsonStore {
       return;
     }
 
-    await Supabase.initialize(
-      url: SupabaseConfig.url,
-      publishableKey: SupabaseConfig.anonKey,
-    );
-    _available = true;
+    try {
+      await Supabase.initialize(
+        url: SupabaseConfig.url,
+        publishableKey: SupabaseConfig.anonKey,
+      );
+      _available = true;
+    } catch (_) {
+      _available = false;
+    }
   }
 
   static SupabaseClient get _client => Supabase.instance.client;
