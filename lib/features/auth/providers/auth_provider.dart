@@ -54,41 +54,47 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<bool> login({required String nombre, required String codigo}) async {
-    var usuarios = await service.obtenerUsuarios();
     final nombreNormalizado = nombre.trim().toLowerCase();
     final codigoNormalizado = codigo.trim();
     final onlineLogin = nombreNormalizado.contains('@');
+
+    if (!onlineLogin) {
+      return _loginLocal(
+        nombreNormalizado: nombreNormalizado,
+        codigoNormalizado: codigoNormalizado,
+      );
+    }
+
     final signIn = await SupabaseAuthService.signIn(
       identifier: nombre,
       password: codigo,
     );
     final authId = signIn.authId;
 
-    if (authId != null) {
-      usuarios = await service.obtenerUsuarios();
-      final cloudUser =
-          SupabaseAuthService.matchUser(
-            users: usuarios,
-            identifier: nombre,
-            authId: authId,
-          ) ??
-          await SupabaseAuthService.loadProfile(
-            identifier: nombre,
-            authId: authId,
-          );
+    if (authId == null) {
+      state = state.copyWith(
+        error:
+            signIn.error ??
+            'Email o contrasena de Supabase incorrectos. Use la contrasena creada en Supabase.',
+        cargandoSesion: false,
+      );
+      return false;
+    }
 
-      if (cloudUser != null) {
-        await service.guardarUsuario(cloudUser);
-        state = state.copyWith(
-          usuario: cloudUser,
-          usuarios: await service.obtenerUsuarios(),
-          limpiarError: true,
-          cargandoSesion: false,
+    final cloudProfile = await SupabaseAuthService.loadProfile(
+      identifier: nombre,
+      authId: authId,
+    );
+    final usuarios = await service.obtenerUsuarios();
+    final cloudUser =
+        cloudProfile ??
+        SupabaseAuthService.matchUser(
+          users: usuarios,
+          identifier: nombre,
+          authId: authId,
         );
-        await _guardarSesion(cloudUser);
-        return true;
-      }
 
+    if (cloudUser == null) {
       state = state.copyWith(
         usuarios: usuarios,
         error:
@@ -98,14 +104,23 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return false;
     }
 
-    if (onlineLogin && signIn.error != null) {
-      state = state.copyWith(
-        usuarios: usuarios,
-        error: signIn.error,
-        cargandoSesion: false,
-      );
-      return false;
-    }
+    await service.guardarUsuario(cloudUser);
+    final usuariosActualizados = await service.obtenerUsuarios();
+    state = state.copyWith(
+      usuario: cloudUser,
+      usuarios: usuariosActualizados,
+      limpiarError: true,
+      cargandoSesion: false,
+    );
+    await _guardarSesion(cloudUser);
+    return true;
+  }
+
+  Future<bool> _loginLocal({
+    required String nombreNormalizado,
+    required String codigoNormalizado,
+  }) async {
+    final usuarios = await service.obtenerUsuarios();
 
     for (final usuario in usuarios) {
       if (usuario.activo &&
