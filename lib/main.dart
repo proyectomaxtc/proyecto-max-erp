@@ -6,17 +6,8 @@ import 'app/app.dart';
 import 'core/storage/storage_service.dart';
 
 Future<void> main() async {
-
   WidgetsFlutterBinding.ensureInitialized();
 
-  await StorageService.initialize();  runApp(
-
-    const ProviderScope(
-
-      child: ProyectoMaxApp(),
-
-    ),
-
-  );
-
+  await StorageService.initialize();
+  runApp(const ProviderScope(child: ProyectoMaxApp()));
 }

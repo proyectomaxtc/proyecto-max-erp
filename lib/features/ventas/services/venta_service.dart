@@ -32,6 +32,7 @@ class VentaService {
     final ventaEliminada = await CloudJsonStore.delete(
       table: StorageBoxes.ventas,
       id: id,
+      requireMatch: true,
     );
     final cajaEliminada = await CloudJsonStore.delete(
       table: StorageBoxes.caja,

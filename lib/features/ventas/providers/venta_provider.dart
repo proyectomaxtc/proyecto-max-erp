@@ -61,11 +61,12 @@ class VentaNotifier extends StateNotifier<VentaState> {
         .where((item) => item.id == id)
         .firstOrNull;
 
+    await repository.eliminarVenta(id);
+
     if (venta != null && venta.estado == 'Completada') {
       await _devolverStock(venta);
     }
 
-    await repository.eliminarVenta(id);
     await cargarVentas();
   }
 

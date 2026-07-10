@@ -11,11 +11,18 @@ import '../models/venta_model.dart';
 import '../providers/venta_provider.dart';
 import 'venta_form.dart';
 
-class VentasTable extends ConsumerWidget {
+class VentasTable extends ConsumerStatefulWidget {
   const VentasTable({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<VentasTable> createState() => _VentasTableState();
+}
+
+class _VentasTableState extends ConsumerState<VentasTable> {
+  final Set<String> eliminandoVentas = {};
+
+  @override
+  Widget build(BuildContext context) {
     final ventas = ref.watch(ventaProvider).ventasFiltradas;
 
     if (ventas.isEmpty) {
@@ -68,6 +75,7 @@ class VentasTable extends ConsumerWidget {
       ],
       rows: ventas.map((venta) {
         final status = _status(venta);
+        final eliminando = eliminandoVentas.contains(venta.id);
 
         return DataRow(
           cells: [
@@ -106,13 +114,21 @@ class VentasTable extends ConsumerWidget {
                 children: [
                   IconButton(
                     tooltip: "Editar",
-                    onPressed: () => _editarVenta(context, ref, venta),
+                    onPressed: () => _editarVenta(context, venta),
                     icon: const Icon(Icons.edit_outlined),
                   ),
                   IconButton(
                     tooltip: "Eliminar",
-                    onPressed: () => _eliminarVenta(context, ref, venta),
-                    icon: const Icon(Icons.delete_outline),
+                    onPressed: eliminando
+                        ? null
+                        : () => _eliminarVenta(context, venta),
+                    icon: eliminando
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.delete_outline),
                   ),
                 ],
               ),
@@ -123,11 +139,7 @@ class VentasTable extends ConsumerWidget {
     );
   }
 
-  Future<void> _editarVenta(
-    BuildContext context,
-    WidgetRef ref,
-    VentaModel venta,
-  ) async {
+  Future<void> _editarVenta(BuildContext context, VentaModel venta) async {
     final esPropietario = await ref
         .read(authProvider.notifier)
         .esPropietarioActual();
@@ -161,11 +173,7 @@ class VentasTable extends ConsumerWidget {
     );
   }
 
-  Future<void> _eliminarVenta(
-    BuildContext context,
-    WidgetRef ref,
-    VentaModel venta,
-  ) async {
+  Future<void> _eliminarVenta(BuildContext context, VentaModel venta) async {
     final esPropietario = await ref
         .read(authProvider.notifier)
         .esPropietarioActual();
@@ -206,8 +214,22 @@ class VentasTable extends ConsumerWidget {
     );
 
     if (eliminar == true) {
+      setState(() {
+        eliminandoVentas.add(venta.id);
+      });
+
       try {
         await ref.read(ventaProvider.notifier).eliminarVenta(venta.id);
+        if (!context.mounted) {
+          return;
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.success,
+            content: Text('Venta ${venta.numero} eliminada correctamente'),
+          ),
+        );
       } catch (error) {
         if (!context.mounted) {
           return;
@@ -219,6 +241,12 @@ class VentasTable extends ConsumerWidget {
             content: Text(error.toString().replaceFirst('Exception: ', '')),
           ),
         );
+      } finally {
+        if (mounted) {
+          setState(() {
+            eliminandoVentas.remove(venta.id);
+          });
+        }
       }
     }
   }
