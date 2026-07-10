@@ -1,9 +1,13 @@
 class SupabaseConfig {
   SupabaseConfig._();
 
-  static const url = String.fromEnvironment('SUPABASE_URL');
-  static const anonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+  static final url = _clean(String.fromEnvironment('SUPABASE_URL'));
+  static final anonKey = _clean(String.fromEnvironment('SUPABASE_ANON_KEY'));
 
   static bool get isConfigured =>
       url.trim().isNotEmpty && anonKey.trim().isNotEmpty;
+
+  static String _clean(String value) {
+    return value.trim().replaceAll(RegExp(r'\s+'), '');
+  }
 }

@@ -45,6 +45,13 @@ class SupabaseAuthService {
         );
       }
 
+      if (_isConnectionError(message)) {
+        return const SupabaseSignInResult(
+          error:
+              'No se pudo conectar con Supabase. Revise que SUPABASE_URL no tenga espacios y que SUPABASE_ANON_KEY este completa.',
+        );
+      }
+
       return SupabaseSignInResult(error: error.message);
     } catch (_) {
       return const SupabaseSignInResult(
@@ -134,6 +141,10 @@ class SupabaseAuthService {
         return 'Supabase no acepto la nueva contrasena. Use al menos 6 caracteres.';
       }
 
+      if (_isConnectionError(message)) {
+        return 'No se pudo conectar con Supabase. Revise que SUPABASE_URL no tenga espacios y que SUPABASE_ANON_KEY este completa.';
+      }
+
       return error.message;
     } catch (_) {
       return 'No se pudo cambiar la contrasena. Revise la conexion.';
@@ -200,6 +211,13 @@ class SupabaseAuthService {
 
   static String _normalize(String value) {
     return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
+  }
+
+  static bool _isConnectionError(String message) {
+    return message.contains('failed to fetch') ||
+        message.contains('clientexception') ||
+        message.contains('network') ||
+        message.contains('xmlhttprequest');
   }
 }
 
