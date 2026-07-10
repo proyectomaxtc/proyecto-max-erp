@@ -38,7 +38,7 @@ class CloudJsonStore {
 
     final remoteValues = await loadAll(table);
 
-    if (remoteValues.isEmpty && box.isNotEmpty) {
+    if (remoteValues.isEmpty) {
       for (final key in box.keys) {
         final value = box.get(key);
         if (value is Map) {
@@ -53,8 +53,42 @@ class CloudJsonStore {
       return _localValues(box);
     }
 
-    await box.clear();
+    final mergedValues = <String, Map<dynamic, dynamic>>{};
     for (final value in remoteValues) {
+      final id = value['id']?.toString();
+      if (id == null || id.isEmpty) {
+        continue;
+      }
+      mergedValues[id] = Map<dynamic, dynamic>.from(value);
+    }
+
+    for (final local in _localValues(box)) {
+      final id = local['id']?.toString();
+      if (id == null || id.isEmpty) {
+        continue;
+      }
+
+      final remote = mergedValues[id];
+      if (remote == null || _isLocalNewer(local, remote)) {
+        mergedValues[id] = local;
+        await save(table: table, id: id, data: local);
+        continue;
+      }
+
+      final localImage = local['imagenPath']?.toString() ?? '';
+      final remoteImage = remote['imagenPath']?.toString() ?? '';
+      final localHasPortableImage = localImage.startsWith('data:image/');
+      final remoteHasPortableImage = remoteImage.startsWith('data:image/');
+      if (localHasPortableImage && !remoteHasPortableImage) {
+        final merged = Map<dynamic, dynamic>.from(remote);
+        merged['imagenPath'] = localImage;
+        mergedValues[id] = merged;
+        await save(table: table, id: id, data: merged);
+      }
+    }
+
+    await box.clear();
+    for (final value in mergedValues.values) {
       final id = value['id']?.toString();
       if (id == null || id.isEmpty) {
         continue;
@@ -63,7 +97,7 @@ class CloudJsonStore {
       await box.put(id, value);
     }
 
-    return remoteValues;
+    return mergedValues.values.toList();
   }
 
   static Future<List<Map<dynamic, dynamic>>> loadAll(String table) async {
@@ -159,5 +193,39 @@ class CloudJsonStore {
         .whereType<Map>()
         .map((value) => Map<dynamic, dynamic>.from(value))
         .toList();
+  }
+
+  static bool _isLocalNewer(
+    Map<dynamic, dynamic> local,
+    Map<dynamic, dynamic> remote,
+  ) {
+    final localUpdatedAt = _recordDate(local);
+    if (localUpdatedAt == null) {
+      return false;
+    }
+
+    final remoteUpdatedAt = _recordDate(remote);
+    if (remoteUpdatedAt == null) {
+      return true;
+    }
+
+    return localUpdatedAt.isAfter(remoteUpdatedAt);
+  }
+
+  static DateTime? _recordDate(Map<dynamic, dynamic> value) {
+    for (final key in const ['actualizado', 'updated_at', 'fecha', 'creado']) {
+      final raw = value[key];
+      if (raw is DateTime) {
+        return raw;
+      }
+      if (raw is String) {
+        final parsed = DateTime.tryParse(raw);
+        if (parsed != null) {
+          return parsed;
+        }
+      }
+    }
+
+    return null;
   }
 }
