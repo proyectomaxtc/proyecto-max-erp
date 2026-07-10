@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -13,6 +15,7 @@ final authProvider = StateNotifierProvider<AuthNotifier, AuthState>(
 class AuthNotifier extends StateNotifier<AuthState> {
   final UserService service;
   static const _sessionUserIdKey = 'auth_session_user_id';
+  static const _sessionUserProfileKey = 'auth_session_user_profile';
 
   AuthNotifier(this.service) : super(const AuthState()) {
     cargarUsuarios();
@@ -25,7 +28,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final usuarioRestaurado =
           usuarioActual ??
           await _restaurarUsuario(usuarios) ??
+          await _restaurarPerfilGuardado() ??
           await _restaurarUsuarioSupabase(usuarios);
+      if (usuarioRestaurado != null) {
+        await _guardarSesion(usuarioRestaurado);
+      }
 
       state = state.copyWith(
         usuarios: usuarios,
@@ -150,6 +157,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final usuarioActualizado = state.usuario?.id == usuario.id
         ? usuario
         : state.usuario;
+    if (usuarioActualizado?.id == usuario.id) {
+      await _guardarSesion(usuario);
+    }
 
     final actualizados = await service.obtenerUsuarios();
     state = state.copyWith(
@@ -168,6 +178,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> _guardarSesion(AppUserModel usuario) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_sessionUserIdKey, usuario.id);
+    await prefs.setString(_sessionUserProfileKey, jsonEncode(usuario.toMap()));
   }
 
   Future<AppUserModel?> _restaurarUsuario(List<AppUserModel> usuarios) async {
@@ -185,6 +196,31 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     await prefs.remove(_sessionUserIdKey);
     return null;
+  }
+
+  Future<AppUserModel?> _restaurarPerfilGuardado() async {
+    final prefs = await SharedPreferences.getInstance();
+    final rawProfile = prefs.getString(_sessionUserProfileKey);
+    if (rawProfile == null || rawProfile.isEmpty) {
+      return null;
+    }
+
+    try {
+      final data = jsonDecode(rawProfile);
+      if (data is! Map) {
+        return null;
+      }
+
+      final usuario = AppUserModel.fromMap(data);
+      if (!usuario.activo || usuario.id.isEmpty) {
+        return null;
+      }
+
+      return usuario;
+    } catch (_) {
+      await prefs.remove(_sessionUserProfileKey);
+      return null;
+    }
   }
 
   Future<AppUserModel?> _restaurarUsuarioSupabase(
@@ -219,5 +255,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> _limpiarSesion() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_sessionUserIdKey);
+    await prefs.remove(_sessionUserProfileKey);
   }
 }
