@@ -11,6 +11,12 @@ class SupabaseConfig {
       url.trim().isNotEmpty && anonKey.trim().isNotEmpty;
 
   static String _clean(String value) {
-    return value.trim().replaceAll(RegExp(r'\s+'), '');
+    return value
+        .trim()
+        .replaceAll(RegExp(r"""[\s"'`]+"""), '')
+        .replaceAll('\uFEFF', '')
+        .replaceAll('\u200B', '')
+        .replaceAll('\u200C', '')
+        .replaceAll('\u200D', '');
   }
 }
