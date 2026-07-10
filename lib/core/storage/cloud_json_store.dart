@@ -8,6 +8,7 @@ class CloudJsonStore {
 
   static bool _initialized = false;
   static bool _available = false;
+  static const _requestTimeout = Duration(seconds: 12);
 
   static bool get enabled => _initialized && _available;
 
@@ -109,7 +110,8 @@ class CloudJsonStore {
       final response = await _client
           .from(table)
           .select('id, data')
-          .order('updated_at', ascending: false);
+          .order('updated_at', ascending: false)
+          .timeout(_requestTimeout);
 
       return response.map<Map<dynamic, dynamic>>((row) {
         final data = Map<dynamic, dynamic>.from(row['data'] as Map? ?? {});
@@ -135,7 +137,7 @@ class CloudJsonStore {
         'id': id,
         'data': data,
         'updated_at': DateTime.now().toIso8601String(),
-      });
+      }).timeout(_requestTimeout);
     } catch (_) {
       return;
     }
@@ -155,7 +157,8 @@ class CloudJsonStore {
           .from(table)
           .delete()
           .eq('id', id)
-          .select('id');
+          .select('id')
+          .timeout(_requestTimeout);
       if (requireMatch && deleted.isEmpty) {
         return false;
       }
@@ -175,7 +178,7 @@ class CloudJsonStore {
       await _client.rpc(
         'delete_venta_owner',
         params: {'venta_id': ventaId},
-      );
+      ).timeout(_requestTimeout);
       return true;
     } catch (_) {
       final ventaDeleted = await delete(

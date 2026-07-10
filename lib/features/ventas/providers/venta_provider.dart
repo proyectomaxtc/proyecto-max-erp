@@ -62,6 +62,9 @@ class VentaNotifier extends StateNotifier<VentaState> {
         .firstOrNull;
 
     await repository.eliminarVenta(id);
+    state = state.copyWith(
+      ventas: state.ventas.where((item) => item.id != id).toList(),
+    );
 
     if (venta != null && venta.estado == 'Completada') {
       await _devolverStock(venta);
