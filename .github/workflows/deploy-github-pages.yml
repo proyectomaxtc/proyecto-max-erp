@@ -18,10 +18,25 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Check Supabase configuration
+        run: |
+          if [ -z "$SUPABASE_URL" ]; then
+            echo "Missing SUPABASE_URL repository secret"
+            exit 1
+          fi
+
+          if [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "Missing SUPABASE_ANON_KEY repository secret"
+            exit 1
+          fi
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -41,8 +56,8 @@ jobs:
           --release
           --pwa-strategy=none
           --base-href="/proyecto-max-erp/"
-          --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}"
-          --dart-define=SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
+          --dart-define=SUPABASE_URL="$SUPABASE_URL"
+          --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
 
       - name: Keep GitHub Pages from processing files
         run: touch build/web/.nojekyll

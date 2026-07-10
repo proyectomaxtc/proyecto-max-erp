@@ -17,7 +17,7 @@ class SupabaseAuthService {
     if (!SupabaseConfig.isConfigured) {
       return const SupabaseSignInResult(
         error:
-            'Netlify no tiene Supabase configurado. Revise SUPABASE_URL y SUPABASE_ANON_KEY.',
+            'La app no tiene Supabase configurado. Revise SUPABASE_URL y SUPABASE_ANON_KEY en el publicador web.',
       );
     }
 
@@ -111,7 +111,7 @@ class SupabaseAuthService {
     }
 
     if (!SupabaseConfig.isConfigured) {
-      return 'Netlify no tiene Supabase configurado. Revise SUPABASE_URL y SUPABASE_ANON_KEY.';
+      return 'La app no tiene Supabase configurado. Revise SUPABASE_URL y SUPABASE_ANON_KEY en el publicador web.';
     }
 
     try {
