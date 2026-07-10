@@ -29,17 +29,9 @@ class VentaService {
   }
 
   Future<void> eliminarVenta(String id) async {
-    final ventaEliminada = await CloudJsonStore.delete(
-      table: StorageBoxes.ventas,
-      id: id,
-      requireMatch: true,
-    );
-    final cajaEliminada = await CloudJsonStore.delete(
-      table: StorageBoxes.caja,
-      id: '$id-caja',
-    );
+    final ventaEliminada = await CloudJsonStore.deleteVentaWithCaja(id);
 
-    if (CloudJsonStore.enabled && (!ventaEliminada || !cajaEliminada)) {
+    if (CloudJsonStore.enabled && !ventaEliminada) {
       throw Exception(
         'Supabase no permitio eliminar la venta. Revise permisos de propietario.',
       );

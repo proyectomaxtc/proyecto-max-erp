@@ -140,9 +140,9 @@ class _VentasTableState extends ConsumerState<VentasTable> {
   }
 
   Future<void> _editarVenta(BuildContext context, VentaModel venta) async {
-    final esPropietario = await ref
-        .read(authProvider.notifier)
-        .esPropietarioActual();
+    final esPropietario =
+        ref.read(authProvider).esPropietario ||
+        await ref.read(authProvider.notifier).esPropietarioActual();
     if (!context.mounted) {
       return;
     }
@@ -174,9 +174,9 @@ class _VentasTableState extends ConsumerState<VentasTable> {
   }
 
   Future<void> _eliminarVenta(BuildContext context, VentaModel venta) async {
-    final esPropietario = await ref
-        .read(authProvider.notifier)
-        .esPropietarioActual();
+    final esPropietario =
+        ref.read(authProvider).esPropietario ||
+        await ref.read(authProvider.notifier).esPropietarioActual();
     if (!context.mounted) {
       return;
     }

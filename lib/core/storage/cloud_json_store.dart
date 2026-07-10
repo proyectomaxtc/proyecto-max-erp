@@ -132,6 +132,28 @@ class CloudJsonStore {
     }
   }
 
+  static Future<bool> deleteVentaWithCaja(String ventaId) async {
+    if (!enabled) {
+      return true;
+    }
+
+    try {
+      await _client.rpc(
+        'delete_venta_owner',
+        params: {'venta_id': ventaId},
+      );
+      return true;
+    } catch (_) {
+      final ventaDeleted = await delete(
+        table: 'ventas',
+        id: ventaId,
+        requireMatch: true,
+      );
+      await delete(table: 'caja', id: '$ventaId-caja');
+      return ventaDeleted;
+    }
+  }
+
   static List<Map<dynamic, dynamic>> _localValues(Box box) {
     return box.values
         .whereType<Map>()

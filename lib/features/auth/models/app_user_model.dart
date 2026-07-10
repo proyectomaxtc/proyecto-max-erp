@@ -23,7 +23,12 @@ class AppUserModel {
     required this.creado,
   });
 
-  bool get esPropietario => _normalizarRol(rol) == 'propietario';
+  bool get esPropietario {
+    final rolNormalizado = _normalizarRol(rol);
+    return rolNormalizado == 'propietario' ||
+        rolNormalizado == 'administrador' ||
+        rolNormalizado == 'owner';
+  }
 
   static String _normalizarRol(String value) {
     return value.trim().toLowerCase();
