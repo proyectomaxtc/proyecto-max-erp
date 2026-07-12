@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:hive/hive.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../network/supabase_config.dart';
 
@@ -9,8 +12,19 @@ class CloudJsonStore {
   static bool _initialized = false;
   static bool _available = false;
   static const _requestTimeout = Duration(seconds: 12);
+  static const _accessTokenKey = 'supabase_access_token';
+  static const _refreshTokenKey = 'supabase_refresh_token';
+  static const _authIdKey = 'supabase_auth_id';
+  static const _authEmailKey = 'supabase_auth_email';
+  static String? _accessToken;
+  static String? _refreshToken;
+  static String? _authId;
+  static String? _authEmail;
 
   static bool get enabled => _initialized && _available;
+  static String? get currentAccessToken => _accessToken;
+  static String? get currentAuthId => _authId;
+  static String? get currentEmail => _authEmail;
 
   static Future<void> initialize() async {
     _initialized = true;
@@ -20,18 +34,40 @@ class CloudJsonStore {
       return;
     }
 
-    try {
-      await Supabase.initialize(
-        url: SupabaseConfig.url,
-        publishableKey: SupabaseConfig.anonKey,
-      );
-      _available = true;
-    } catch (_) {
-      _available = false;
-    }
+    await _loadSession();
+    _available = true;
   }
 
-  static SupabaseClient get _client => Supabase.instance.client;
+  static Future<void> setSession({
+    required String accessToken,
+    required String refreshToken,
+    required String authId,
+    required String email,
+  }) async {
+    _accessToken = accessToken;
+    _refreshToken = refreshToken;
+    _authId = authId;
+    _authEmail = email;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_accessTokenKey, accessToken);
+    await prefs.setString(_refreshTokenKey, refreshToken);
+    await prefs.setString(_authIdKey, authId);
+    await prefs.setString(_authEmailKey, email);
+  }
+
+  static Future<void> clearSession() async {
+    _accessToken = null;
+    _refreshToken = null;
+    _authId = null;
+    _authEmail = null;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_accessTokenKey);
+    await prefs.remove(_refreshTokenKey);
+    await prefs.remove(_authIdKey);
+    await prefs.remove(_authEmailKey);
+  }
 
   static Future<List<Map<dynamic, dynamic>>> syncBox({
     required String table,
@@ -111,13 +147,22 @@ class CloudJsonStore {
     }
 
     try {
-      final response = await _client
-          .from(table)
-          .select('id, data')
-          .order('updated_at', ascending: false)
-          .timeout(_requestTimeout);
+      final uri = _restUri(table, {
+        'select': 'id,data',
+        'order': 'updated_at.desc',
+      });
+      final response = await _send(() => http.get(uri, headers: _headers()));
 
-      return response.map<Map<dynamic, dynamic>>((row) {
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return const [];
+      }
+
+      final rows = jsonDecode(response.body);
+      if (rows is! List) {
+        return const [];
+      }
+
+      return rows.map<Map<dynamic, dynamic>>((row) {
         final data = Map<dynamic, dynamic>.from(row['data'] as Map? ?? {});
         data['id'] = data['id'] ?? row['id'];
         return data;
@@ -137,11 +182,20 @@ class CloudJsonStore {
     }
 
     try {
-      await _client.from(table).upsert({
-        'id': id,
-        'data': data,
-        'updated_at': DateTime.now().toIso8601String(),
-      }).timeout(_requestTimeout);
+      final uri = _restUri(table, {'on_conflict': 'id'});
+      await _send(
+        () => http.post(
+          uri,
+          headers: _headers(
+            prefer: 'resolution=merge-duplicates,return=minimal',
+          ),
+          body: jsonEncode({
+            'id': id,
+            'data': data,
+            'updated_at': DateTime.now().toIso8601String(),
+          }),
+        ),
+      );
     } catch (_) {
       return;
     }
@@ -157,13 +211,20 @@ class CloudJsonStore {
     }
 
     try {
-      final deleted = await _client
-          .from(table)
-          .delete()
-          .eq('id', id)
-          .select('id')
-          .timeout(_requestTimeout);
-      if (requireMatch && deleted.isEmpty) {
+      final uri = _restUri(table, {'id': 'eq.$id', 'select': 'id'});
+      final response = await _send(
+        () => http.delete(
+          uri,
+          headers: _headers(prefer: 'return=representation'),
+        ),
+      );
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return false;
+      }
+
+      final deleted = jsonDecode(response.body);
+      if (requireMatch && deleted is List && deleted.isEmpty) {
         return false;
       }
 
@@ -179,10 +240,17 @@ class CloudJsonStore {
     }
 
     try {
-      await _client.rpc(
-        'delete_venta_owner',
-        params: {'venta_id': ventaId},
-      ).timeout(_requestTimeout);
+      final uri = _restUri('rpc/delete_venta_owner');
+      final response = await _send(
+        () => http.post(
+          uri,
+          headers: _headers(),
+          body: jsonEncode({'venta_id': ventaId}),
+        ),
+      );
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return false;
+      }
       return true;
     } catch (_) {
       final ventaDeleted = await delete(
@@ -200,6 +268,88 @@ class CloudJsonStore {
         .whereType<Map>()
         .map((value) => Map<dynamic, dynamic>.from(value))
         .toList();
+  }
+
+  static Uri _restUri(String path, [Map<String, String>? query]) {
+    return Uri.parse('${SupabaseConfig.url}/rest/v1/$path').replace(
+      queryParameters: query,
+    );
+  }
+
+  static Map<String, String> _headers({String? prefer}) {
+    return {
+      'apikey': SupabaseConfig.anonKey,
+      'authorization': 'Bearer ${_accessToken ?? SupabaseConfig.anonKey}',
+      'content-type': 'application/json',
+      if (prefer != null) 'prefer': prefer,
+    };
+  }
+
+  static Future<http.Response> _send(
+    Future<http.Response> Function() request, {
+    bool retried = false,
+  }) async {
+    final response = await request().timeout(_requestTimeout);
+    if (response.statusCode == 401 && !retried && await _refreshSession()) {
+      return _send(request, retried: true);
+    }
+
+    return response;
+  }
+
+  static Future<void> _loadSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    _accessToken = prefs.getString(_accessTokenKey);
+    _refreshToken = prefs.getString(_refreshTokenKey);
+    _authId = prefs.getString(_authIdKey);
+    _authEmail = prefs.getString(_authEmailKey);
+  }
+
+  static Future<bool> _refreshSession() async {
+    final refreshToken = _refreshToken;
+    if (refreshToken == null || refreshToken.isEmpty) {
+      return false;
+    }
+
+    try {
+      final response = await http
+          .post(
+            Uri.parse(
+              '${SupabaseConfig.url}/auth/v1/token?grant_type=refresh_token',
+            ),
+            headers: {
+              'apikey': SupabaseConfig.anonKey,
+              'content-type': 'application/json',
+            },
+            body: jsonEncode({'refresh_token': refreshToken}),
+          )
+          .timeout(_requestTimeout);
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        await clearSession();
+        return false;
+      }
+
+      final data = jsonDecode(response.body);
+      final accessToken = data['access_token'] as String? ?? '';
+      final newRefreshToken = data['refresh_token'] as String? ?? refreshToken;
+      final user = data['user'] as Map? ?? {};
+      final authId = user['id']?.toString() ?? _authId ?? '';
+      final email = user['email']?.toString() ?? _authEmail ?? '';
+      if (accessToken.isEmpty || authId.isEmpty) {
+        return false;
+      }
+
+      await setSession(
+        accessToken: accessToken,
+        refreshToken: newRefreshToken,
+        authId: authId,
+        email: email,
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   static bool _isLocalNewer(

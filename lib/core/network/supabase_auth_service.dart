@@ -1,6 +1,9 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
 
 import '../../features/auth/models/app_user_model.dart';
+import '../storage/cloud_json_store.dart';
 import 'supabase_config.dart';
 
 class SupabaseAuthService {
@@ -22,14 +25,28 @@ class SupabaseAuthService {
     }
 
     try {
-      final response = await Supabase.instance.client.auth.signInWithPassword(
-        email: identifier.trim(),
-        password: password.trim(),
-      );
+      final response = await http
+          .post(
+            Uri.parse(
+              '${SupabaseConfig.url}/auth/v1/token?grant_type=password',
+            ),
+            headers: {
+              'apikey': SupabaseConfig.anonKey,
+              'content-type': 'application/json',
+            },
+            body: jsonEncode({
+              'email': identifier.trim(),
+              'password': password.trim(),
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
 
-      return SupabaseSignInResult(authId: response.user?.id);
-    } on AuthException catch (error) {
-      final message = error.message.toLowerCase();
+      final body = response.body.isEmpty ? const {} : jsonDecode(response.body);
+      final message = body is Map
+          ? (body['msg'] ?? body['message'] ?? body['error_description'] ?? '')
+                .toString()
+                .toLowerCase()
+          : '';
 
       if (message.contains('email not confirmed')) {
         return const SupabaseSignInResult(
@@ -45,17 +62,53 @@ class SupabaseAuthService {
         );
       }
 
-      if (_isConnectionError(message)) {
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        final savedSession = _savedSessionFor(identifier);
+        if (savedSession != null) {
+          return SupabaseSignInResult(authId: savedSession);
+        }
+
         return const SupabaseSignInResult(
           error:
-              'No se pudo conectar con Supabase. Revise que SUPABASE_URL no tenga espacios y que SUPABASE_ANON_KEY este completa.',
+              'Supabase no permitio iniciar sesion. Revise email, contrasena y clave publishable.',
         );
       }
 
-      return SupabaseSignInResult(error: error.message);
+      if (body is! Map) {
+        return const SupabaseSignInResult(
+          error: 'Supabase respondio con un formato inesperado.',
+        );
+      }
+
+      final accessToken = body['access_token'] as String? ?? '';
+      final refreshToken = body['refresh_token'] as String? ?? '';
+      final user = body['user'] as Map? ?? {};
+      final authId = user['id']?.toString() ?? '';
+      final email = user['email']?.toString() ?? identifier.trim();
+
+      if (accessToken.isEmpty || refreshToken.isEmpty || authId.isEmpty) {
+        return const SupabaseSignInResult(
+          error: 'Supabase no devolvio una sesion valida.',
+        );
+      }
+
+      await CloudJsonStore.setSession(
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+        authId: authId,
+        email: email,
+      );
+
+      return SupabaseSignInResult(authId: authId);
     } catch (_) {
+      final savedSession = _savedSessionFor(identifier);
+      if (savedSession != null) {
+        return SupabaseSignInResult(authId: savedSession);
+      }
+
       return const SupabaseSignInResult(
-        error: 'No se pudo conectar con Supabase. Revise la configuracion.',
+        error:
+            'No se pudo conectar con Supabase Auth. Revise conexion o espere unos segundos e intente de nuevo.',
       );
     }
   }
@@ -65,11 +118,7 @@ class SupabaseAuthService {
       return;
     }
 
-    try {
-      await Supabase.instance.client.auth.signOut();
-    } catch (_) {
-      return;
-    }
+    await CloudJsonStore.clearSession();
   }
 
   static String? currentAuthId() {
@@ -77,11 +126,7 @@ class SupabaseAuthService {
       return null;
     }
 
-    try {
-      return Supabase.instance.client.auth.currentUser?.id;
-    } catch (_) {
-      return null;
-    }
+    return CloudJsonStore.currentAuthId;
   }
 
   static String? currentEmail() {
@@ -89,11 +134,7 @@ class SupabaseAuthService {
       return null;
     }
 
-    try {
-      return Supabase.instance.client.auth.currentUser?.email;
-    } catch (_) {
-      return null;
-    }
+    return CloudJsonStore.currentEmail;
   }
 
   static Future<String?> changePassword({
@@ -122,30 +163,31 @@ class SupabaseAuthService {
     }
 
     try {
-      await Supabase.instance.client.auth.signInWithPassword(
-        email: cleanEmail,
+      final signIn = await signIn(
+        identifier: cleanEmail,
         password: cleanCurrentPassword,
       );
-      await Supabase.instance.client.auth.updateUser(
-        UserAttributes(password: cleanNewPassword),
-      );
-      return null;
-    } on AuthException catch (error) {
-      final message = error.message.toLowerCase();
-
-      if (message.contains('invalid login credentials')) {
-        return 'Email o contrasena actual incorrectos.';
+      if (signIn.authId == null) {
+        return signIn.error ?? 'Email o contrasena actual incorrectos.';
       }
 
-      if (message.contains('password')) {
+      final response = await http
+          .put(
+            Uri.parse('${SupabaseConfig.url}/auth/v1/user'),
+            headers: {
+              'apikey': SupabaseConfig.anonKey,
+              'authorization': 'Bearer ${CloudJsonStore.currentAccessToken}',
+              'content-type': 'application/json',
+            },
+            body: jsonEncode({'password': cleanNewPassword}),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
         return 'Supabase no acepto la nueva contrasena. Use al menos 6 caracteres.';
       }
 
-      if (_isConnectionError(message)) {
-        return 'No se pudo conectar con Supabase. Revise que SUPABASE_URL no tenga espacios y que SUPABASE_ANON_KEY este completa.';
-      }
-
-      return error.message;
+      return null;
     } catch (_) {
       return 'No se pudo cambiar la contrasena. Revise la conexion.';
     }
@@ -183,13 +225,33 @@ class SupabaseAuthService {
     }
 
     try {
-      final row = await Supabase.instance.client
-          .from('user_profiles')
-          .select('auth_id, app_user_id, nombre, rol, sucursal, activo')
-          .eq('auth_id', authId)
-          .maybeSingle();
+      final response = await http
+          .get(
+            Uri.parse('${SupabaseConfig.url}/rest/v1/user_profiles').replace(
+              queryParameters: {
+                'select': 'auth_id,app_user_id,nombre,rol,sucursal,activo',
+                'auth_id': 'eq.$authId',
+                'limit': '1',
+              },
+            ),
+            headers: {
+              'apikey': SupabaseConfig.anonKey,
+              'authorization': 'Bearer ${CloudJsonStore.currentAccessToken}',
+            },
+          )
+          .timeout(const Duration(seconds: 15));
 
-      if (row == null || row['activo'] != true) {
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return null;
+      }
+
+      final rows = jsonDecode(response.body);
+      if (rows is! List || rows.isEmpty) {
+        return null;
+      }
+
+      final row = Map<String, dynamic>.from(rows.first as Map);
+      if (row['activo'] != true) {
         return null;
       }
 
@@ -213,12 +275,20 @@ class SupabaseAuthService {
     return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
   }
 
-  static bool _isConnectionError(String message) {
-    return message.contains('failed to fetch') ||
-        message.contains('clientexception') ||
-        message.contains('network') ||
-        message.contains('xmlhttprequest');
+  static String? _savedSessionFor(String identifier) {
+    final authId = CloudJsonStore.currentAuthId;
+    final email = CloudJsonStore.currentEmail;
+    if (authId == null || authId.isEmpty || email == null || email.isEmpty) {
+      return null;
+    }
+
+    if (email.trim().toLowerCase() != identifier.trim().toLowerCase()) {
+      return null;
+    }
+
+    return authId;
   }
+
 }
 
 class SupabaseSignInResult {

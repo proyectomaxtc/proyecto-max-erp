@@ -29,6 +29,7 @@ dependencies:
   path_provider: ^2.1.6
   pdf: ^3.11.3
   shared_preferences: ^2.5.5
+  http: ^1.6.0
 
   # Base de datos local
   hive: ^2.2.3
