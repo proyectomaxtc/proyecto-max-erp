@@ -71,8 +71,18 @@ class ProductoService {
   }
 
   Future<void> eliminarProducto(String id) async {
+    final eliminado = await CloudJsonStore.delete(
+      table: StorageBoxes.productos,
+      id: id,
+    );
+
+    if (CloudJsonStore.enabled && !eliminado) {
+      throw Exception(
+        'Supabase no permitio eliminar el producto. Revise permisos de propietario o conexion.',
+      );
+    }
+
     await _box.delete(id);
-    await CloudJsonStore.delete(table: StorageBoxes.productos, id: id);
   }
 
   Future<List<ProductoModel>> importarCatalogoInicialLcc({

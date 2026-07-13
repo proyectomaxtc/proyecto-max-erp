@@ -22,6 +22,8 @@ class CloudJsonStore {
   static String? _authEmail;
 
   static bool get enabled => _initialized && _available;
+  static bool get hasActiveSession =>
+      _accessToken != null && _accessToken!.isNotEmpty;
   static String? get currentAccessToken => _accessToken;
   static String? get currentAuthId => _authId;
   static String? get currentEmail => _authEmail;
@@ -73,11 +75,14 @@ class CloudJsonStore {
     required String table,
     required Box box,
   }) async {
-    if (!enabled) {
+    if (!enabled || !hasActiveSession) {
       return _localValues(box);
     }
 
     final remoteValues = await loadAll(table);
+    if (remoteValues == null) {
+      return _localValues(box);
+    }
 
     if (remoteValues.isEmpty) {
       for (final key in box.keys) {
@@ -141,9 +146,9 @@ class CloudJsonStore {
     return mergedValues.values.toList();
   }
 
-  static Future<List<Map<dynamic, dynamic>>> loadAll(String table) async {
-    if (!enabled) {
-      return const [];
+  static Future<List<Map<dynamic, dynamic>>?> loadAll(String table) async {
+    if (!enabled || !hasActiveSession) {
+      return null;
     }
 
     try {
@@ -154,12 +159,12 @@ class CloudJsonStore {
       final response = await _send(() => http.get(uri, headers: _headers()));
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        return const [];
+        return null;
       }
 
       final rows = jsonDecode(response.body);
       if (rows is! List) {
-        return const [];
+        return null;
       }
 
       return rows.map<Map<dynamic, dynamic>>((row) {
@@ -168,7 +173,7 @@ class CloudJsonStore {
         return data;
       }).toList();
     } catch (_) {
-      return const [];
+      return null;
     }
   }
 
@@ -179,6 +184,9 @@ class CloudJsonStore {
   }) async {
     if (!enabled) {
       return true;
+    }
+    if (!hasActiveSession) {
+      return false;
     }
 
     try {
@@ -209,6 +217,9 @@ class CloudJsonStore {
   }) async {
     if (!enabled) {
       return true;
+    }
+    if (!hasActiveSession) {
+      return false;
     }
 
     try {

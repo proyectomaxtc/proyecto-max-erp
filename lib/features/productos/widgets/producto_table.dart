@@ -194,7 +194,24 @@ class ProductoTable extends ConsumerWidget {
     );
 
     if (eliminar == true) {
-      await ref.read(productoProvider.notifier).eliminarProducto(producto.id);
+      try {
+        await ref.read(productoProvider.notifier).eliminarProducto(producto.id);
+      } catch (error) {
+        if (!context.mounted) return;
+
+        final mensaje = error.toString().replaceFirst('Exception: ', '');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.error,
+            content: Text(
+              mensaje.isEmpty
+                  ? 'No se pudo eliminar el producto.'
+                  : mensaje,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+        );
+      }
     }
   }
 
