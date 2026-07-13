@@ -141,7 +141,7 @@ class _VentaFormState extends ConsumerState<VentaForm> {
           nombre: item.nombre,
           cantidad: nuevaCantidad,
           precioUnitario: item.precioUnitario,
-          costoUnitario: item.costoUnitario,
+            costoUnitario: item.costoUnitario,
         );
       } else {
         items.add(
@@ -155,6 +155,7 @@ class _VentaFormState extends ConsumerState<VentaForm> {
           ),
         );
       }
+      productoSeleccionado = null;
     });
   }
 
@@ -819,15 +820,19 @@ class _VentaFormState extends ConsumerState<VentaForm> {
               SizedBox(height: compact ? 10 : 12),
             ],
             if (compact) ...[
-              DropdownButtonFormField<ProductoModel>(
-                initialValue: productoSeleccionado,
-                isExpanded: true,
-                decoration: decoration("Producto"),
-                dropdownColor: AppColors.surface,
-                items: productos.map(_productoMenuItem).toList(),
-                onChanged: (producto) {
+              _ProductSearchPicker(
+                productos: productos,
+                productoSeleccionado: productoSeleccionado,
+                sucursal: _sucursalOperativa(),
+                decoration: decoration,
+                onSelected: (producto) {
                   setState(() {
                     productoSeleccionado = producto;
+                  });
+                },
+                onCleared: () {
+                  setState(() {
+                    productoSeleccionado = null;
                   });
                 },
               ),
@@ -844,15 +849,19 @@ class _VentaFormState extends ConsumerState<VentaForm> {
               Row(
                 children: [
                   Expanded(
-                    child: DropdownButtonFormField<ProductoModel>(
-                      initialValue: productoSeleccionado,
-                      isExpanded: true,
-                      decoration: decoration("Producto"),
-                      dropdownColor: AppColors.surface,
-                      items: productos.map(_productoMenuItem).toList(),
-                      onChanged: (producto) {
+                    child: _ProductSearchPicker(
+                      productos: productos,
+                      productoSeleccionado: productoSeleccionado,
+                      sucursal: _sucursalOperativa(),
+                      decoration: decoration,
+                      onSelected: (producto) {
                         setState(() {
                           productoSeleccionado = producto;
+                        });
+                      },
+                      onCleared: () {
+                        setState(() {
+                          productoSeleccionado = null;
                         });
                       },
                     ),
@@ -969,6 +978,159 @@ class _VentaFormState extends ConsumerState<VentaForm> {
   }
 
   String _normalizarTexto(String value) {
+    return value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+  }
+}
+
+class _ProductSearchPicker extends StatelessWidget {
+  final List<ProductoModel> productos;
+  final ProductoModel? productoSeleccionado;
+  final String sucursal;
+  final InputDecoration Function(String label) decoration;
+  final ValueChanged<ProductoModel> onSelected;
+  final VoidCallback onCleared;
+
+  const _ProductSearchPicker({
+    required this.productos,
+    required this.productoSeleccionado,
+    required this.sucursal,
+    required this.decoration,
+    required this.onSelected,
+    required this.onCleared,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Autocomplete<ProductoModel>(
+      key: ValueKey(productoSeleccionado?.id ?? 'producto-search-empty'),
+      initialValue: TextEditingValue(
+        text: productoSeleccionado == null
+            ? ''
+            : _displayProducto(productoSeleccionado!),
+      ),
+      displayStringForOption: _displayProducto,
+      optionsBuilder: (textEditingValue) {
+        final query = _normalizar(textEditingValue.text);
+        final terms = query.split(' ').where((term) => term.isNotEmpty);
+        final base = [...productos]..sort(
+          (a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()),
+        );
+
+        if (query.isEmpty) {
+          return base.take(12);
+        }
+
+        return base.where((producto) {
+          final texto = _textoBusqueda(producto);
+          return terms.every(texto.contains);
+        }).take(20);
+      },
+      onSelected: onSelected,
+      fieldViewBuilder:
+          (context, controller, focusNode, onFieldSubmitted) {
+        return TextFormField(
+          controller: controller,
+          focusNode: focusNode,
+          decoration: decoration("Buscar producto por nombre o codigo")
+              .copyWith(
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: controller.text.trim().isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: "Limpiar producto",
+                        onPressed: () {
+                          controller.clear();
+                          onCleared();
+                          focusNode.requestFocus();
+                        },
+                        icon: const Icon(Icons.close),
+                      ),
+              ),
+          onFieldSubmitted: (_) => onFieldSubmitted(),
+        );
+      },
+      optionsViewBuilder: (context, onSelectedOption, options) {
+        final lista = options.toList();
+
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            color: AppColors.surface,
+            elevation: 8,
+            borderRadius: BorderRadius.circular(14),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 320, maxWidth: 720),
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                shrinkWrap: true,
+                itemCount: lista.length,
+                separatorBuilder: (_, __) => const Divider(
+                  height: 1,
+                  color: AppColors.border,
+                ),
+                itemBuilder: (context, index) {
+                  final producto = lista[index];
+                  final stockSucursal = producto.stockEnSucursal(sucursal);
+                  final stockSantaFe = producto.stockEnSucursal(
+                    Branches.casaCentral,
+                  );
+                  final stockAlberdi = producto.stockEnSucursal(
+                    Branches.alberdi,
+                  );
+
+                  return ListTile(
+                    dense: true,
+                    title: Text(
+                      producto.nombre,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    subtitle: Text(
+                      '${producto.codigo} - Stock ${stockSucursal.toStringAsFixed(0)} - SF ${stockSantaFe.toStringAsFixed(0)} - ALB ${stockAlberdi.toStringAsFixed(0)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: AppColors.textSecondary),
+                    ),
+                    trailing: Text(
+                      CurrencyFormatter.format(producto.precio),
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    onTap: () => onSelectedOption(producto),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  String _displayProducto(ProductoModel producto) {
+    return '${producto.codigo} - ${producto.nombre}';
+  }
+
+  String _textoBusqueda(ProductoModel producto) {
+    return _normalizar(
+      [
+        producto.codigo,
+        producto.codigoBarras,
+        producto.nombre,
+        producto.categoria,
+        producto.marca,
+        producto.proveedor,
+      ].join(' '),
+    );
+  }
+
+  String _normalizar(String value) {
     return value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
   }
 }
