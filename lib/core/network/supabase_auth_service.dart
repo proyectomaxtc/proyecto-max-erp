@@ -163,12 +163,12 @@ class SupabaseAuthService {
     }
 
     try {
-      final signIn = await signIn(
+      final signInResult = await SupabaseAuthService.signIn(
         identifier: cleanEmail,
         password: cleanCurrentPassword,
       );
-      if (signIn.authId == null) {
-        return signIn.error ?? 'Email o contrasena actual incorrectos.';
+      if (signInResult.authId == null) {
+        return signInResult.error ?? 'Email o contrasena actual incorrectos.';
       }
 
       final response = await http
