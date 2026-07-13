@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/constants/app_colors.dart';
-import '../../../../shared/widgets/dialogs/app_dialog.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../shared/widgets/dialogs/app_dialog.dart';
 
 import 'cliente_form.dart';
 import 'cliente_search.dart';

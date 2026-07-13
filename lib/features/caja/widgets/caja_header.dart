@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/branches.dart';
-import '../../../../shared/widgets/dialogs/app_dialog.dart';
-import '../../../../shared/widgets/search/app_search_bar.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/branches.dart';
+import '../../../shared/widgets/dialogs/app_dialog.dart';
+import '../../../shared/widgets/search/app_search_bar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/caja_provider.dart';
 import 'caja_form.dart';

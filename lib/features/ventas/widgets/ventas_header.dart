@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/constants/branches.dart';
-import '../../../../core/constants/app_colors.dart';
-import '../../../../shared/widgets/dialogs/app_dialog.dart';
+import '../../../core/constants/branches.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../shared/widgets/dialogs/app_dialog.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/venta_provider.dart';
 import 'venta_form.dart';

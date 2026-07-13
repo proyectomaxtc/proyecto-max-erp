@@ -10,11 +10,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
-import '../../../../app/routes.dart';
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/branches.dart';
-import '../../../../core/constants/company.dart';
-import '../../../../core/utils/currency_formatter.dart';
+import '../../../app/routes.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/branches.dart';
+import '../../../core/constants/company.dart';
+import '../../../core/utils/currency_formatter.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../caja/models/caja_movimiento_model.dart';
 import '../../caja/providers/caja_provider.dart';

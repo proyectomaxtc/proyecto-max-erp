@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/constants/app_colors.dart';
-import '../../../../shared/widgets/dialogs/app_dialog.dart';
-import '../../../../shared/widgets/search/app_search_bar.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../shared/widgets/dialogs/app_dialog.dart';
+import '../../../shared/widgets/search/app_search_bar.dart';
 import '../providers/servicio_provider.dart';
 import 'servicio_form.dart';
 

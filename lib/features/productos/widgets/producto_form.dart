@@ -8,8 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-import '../../../../core/constants/branches.dart';
-import '../../../../core/constants/app_colors.dart';
+import '../../../core/constants/branches.dart';
+import '../../../core/constants/app_colors.dart';
 import '../../configuracion/providers/configuracion_provider.dart';
 import '../constants/producto_categorias.dart';
 import '../models/producto_model.dart';

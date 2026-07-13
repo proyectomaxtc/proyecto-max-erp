@@ -2,9 +2,9 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/constants/branches.dart';
-import '../../../../core/constants/app_colors.dart';
-import '../../../../shared/widgets/dialogs/app_dialog.dart';
+import '../../../core/constants/branches.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../shared/widgets/dialogs/app_dialog.dart';
 import '../../auth/providers/auth_provider.dart';
 
 import '../enums/producto_filter.dart';

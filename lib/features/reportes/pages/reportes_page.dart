@@ -5,7 +5,9 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/branches.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../shared/layout/main_layout.dart';
+import '../../../shared/widgets/access_denied_page.dart';
 import '../../../shared/widgets/cards/kpi_card.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../models/balance_gasto_model.dart';
 import '../models/balance_mensual_model.dart';
 import '../models/liquidacion_sueldo_model.dart';
@@ -36,7 +38,15 @@ class _ReportesPageState extends ConsumerState<ReportesPage> {
 
   @override
   Widget build(BuildContext context) {
+    final esPropietario = ref.watch(authProvider).esPropietario;
     final compact = MediaQuery.sizeOf(context).width < 760;
+
+    if (!esPropietario) {
+      return const AccessDeniedPage(
+        title: "Reportes",
+        message: "Los reportes, balances y liquidaciones son solo para propietarios.",
+      );
+    }
 
     return MainLayout(
       title: 'Reportes',

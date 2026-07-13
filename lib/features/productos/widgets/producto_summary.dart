@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/utils/currency_formatter.dart';
-import '../../../../shared/widgets/cards/kpi_card.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/currency_formatter.dart';
+import '../../../shared/widgets/cards/kpi_card.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/producto_provider.dart';
 

@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../shared/layout/main_layout.dart';
+import '../../../shared/widgets/access_denied_page.dart';
 import '../../../shared/widgets/cards/kpi_card.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../../productos/providers/producto_provider.dart';
 import '../providers/compra_provider.dart';
 import '../widgets/compras_header.dart';
@@ -30,10 +32,19 @@ class _ComprasPageState extends ConsumerState<ComprasPage> {
 
   @override
   Widget build(BuildContext context) {
+    final esPropietario = ref.watch(authProvider).esPropietario;
     final compras = ref.watch(compraProvider);
     final productoState = ref.watch(productoProvider);
     final productos = productoState.productos;
     final sucursal = productoState.sucursalSeleccionada;
+
+    if (!esPropietario) {
+      return const AccessDeniedPage(
+        title: "Compras",
+        message: "Compras y costos de proveedores son solo para propietarios.",
+      );
+    }
+
     final reposicion = productos
         .where(
           (producto) =>

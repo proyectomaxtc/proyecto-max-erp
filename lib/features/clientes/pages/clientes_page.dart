@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/layout/main_layout.dart';
+import '../../../shared/widgets/access_denied_page.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../providers/cliente_provider.dart';
 import '../widgets/cliente_header.dart';
 import '../widgets/cliente_table.dart';
@@ -27,6 +29,15 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
 
   @override
   Widget build(BuildContext context) {
+    final esPropietario = ref.watch(authProvider).esPropietario;
+
+    if (!esPropietario) {
+      return const AccessDeniedPage(
+        title: "Clientes",
+        message: "La administracion de clientes es solo para propietarios.",
+      );
+    }
+
     return MainLayout(
       title: "Clientes",
       child: const Column(

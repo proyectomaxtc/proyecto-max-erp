@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../shared/widgets/search/app_search_bar.dart';
+import '../../../shared/widgets/search/app_search_bar.dart';
 
 import '../providers/cliente_provider.dart';
 

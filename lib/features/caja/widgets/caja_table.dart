@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/utils/currency_formatter.dart';
-import '../../../../shared/widgets/tables/app_data_table.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/currency_formatter.dart';
+import '../../../shared/widgets/tables/app_data_table.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../providers/caja_provider.dart';
 import 'owner_authorization_dialog.dart';
 
@@ -14,6 +15,7 @@ class CajaTable extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(cajaProvider);
     final movimientos = state.movimientosFiltrados;
+    final esPropietario = ref.watch(authProvider).esPropietario;
 
     if (!state.cajaAbierta) {
       return Container(
@@ -127,11 +129,13 @@ class CajaTable extends ConsumerWidget {
                   ? IconButton(
                       tooltip: "Eliminar",
                       onPressed: () async {
-                        final autorizado = await OwnerAuthorizationDialog.request(
-                          context,
-                          reason:
-                              "Eliminar movimientos de caja requiere autorizacion del propietario.",
-                        );
+                        final autorizado =
+                            esPropietario ||
+                            await OwnerAuthorizationDialog.request(
+                              context,
+                              reason:
+                                  "Eliminar movimientos de caja requiere autorizacion del propietario.",
+                            );
 
                         if (!autorizado) {
                           return;

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/branches.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/branches.dart';
 import '../../auth/models/app_user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 

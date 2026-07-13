@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_colors.dart';
 import '../models/cliente_model.dart';
 import '../providers/cliente_provider.dart';
 

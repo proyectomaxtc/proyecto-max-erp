@@ -5,6 +5,7 @@ import '../../../core/constants/branches.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../shared/layout/main_layout.dart';
+import '../../../shared/widgets/access_denied_page.dart';
 import '../../../shared/widgets/cards/kpi_card.dart';
 import '../../../shared/widgets/tables/app_data_table.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -38,6 +39,15 @@ class _InventarioPageState extends ConsumerState<InventarioPage> {
     final productos = productoState.productos;
     final sucursal = productoState.sucursalSeleccionada;
     final esPropietario = ref.watch(authProvider).esPropietario;
+
+    if (!esPropietario) {
+      return const AccessDeniedPage(
+        title: "Inventario",
+        message:
+            "El inventario administrativo es solo para propietarios. Use Productos para consultar stock.",
+      );
+    }
+
     final stockBajo = productos
         .where(
           (producto) =>

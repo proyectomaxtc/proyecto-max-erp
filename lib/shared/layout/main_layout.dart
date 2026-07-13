@@ -143,7 +143,12 @@ class _MobileNav extends StatelessWidget {
 
   int _selectedIndex(List<_MobileNavItem> items, String route) {
     final index = items.indexWhere((item) => item.route == route);
-    return index >= 0 ? index : items.length - 1;
+    if (index >= 0) {
+      return index;
+    }
+
+    final moreIndex = items.indexWhere((item) => item.route.isEmpty);
+    return moreIndex >= 0 ? moreIndex : 0;
   }
 
   void _showMoreMenu(BuildContext context, String currentRoute) {

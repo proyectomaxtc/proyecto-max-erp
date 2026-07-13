@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../app/routes.dart';
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/utils/currency_formatter.dart';
-import '../../../../shared/widgets/cards/kpi_card.dart';
-import '../../../../shared/widgets/dashboard/dashboard_header.dart';
+import '../../../app/routes.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/currency_formatter.dart';
+import '../../../shared/widgets/cards/kpi_card.dart';
+import '../../../shared/widgets/dashboard/dashboard_header.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/dashboard_provider.dart';
 

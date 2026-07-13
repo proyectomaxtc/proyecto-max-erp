@@ -5,10 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/utils/currency_formatter.dart';
-import '../../../../shared/widgets/dialogs/app_dialog.dart';
-import '../../../../shared/widgets/tables/app_data_table.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/currency_formatter.dart';
+import '../../../shared/widgets/dialogs/app_dialog.dart';
+import '../../../shared/widgets/tables/app_data_table.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/producto_model.dart';
 import '../providers/producto_provider.dart';

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../app/routes.dart';
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/branches.dart';
-import '../../../../core/utils/currency_formatter.dart';
+import '../../../app/routes.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/branches.dart';
+import '../../../core/utils/currency_formatter.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../caja/models/caja_movimiento_model.dart';
 import '../../caja/providers/caja_provider.dart';
