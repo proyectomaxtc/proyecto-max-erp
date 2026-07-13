@@ -66,11 +66,9 @@ class ProductoHeader extends ConsumerWidget {
         side: BorderSide(
           color: selected ? AppColors.primary : AppColors.border,
         ),
-        onSelected: esPropietario
-            ? (_) {
-                ref.read(productoProvider.notifier).cambiarSucursal(sucursal);
-              }
-            : null,
+        onSelected: (_) {
+          ref.read(productoProvider.notifier).cambiarSucursal(sucursal);
+        },
       );
     }).toList();
 
@@ -779,11 +777,9 @@ class _CatalogoCompletoDialog extends ConsumerWidget {
         side: BorderSide(
           color: selected ? AppColors.primary : AppColors.border,
         ),
-        onSelected: esPropietario
-            ? (_) {
-                ref.read(productoProvider.notifier).cambiarSucursal(sucursal);
-              }
-            : null,
+        onSelected: (_) {
+          ref.read(productoProvider.notifier).cambiarSucursal(sucursal);
+        },
       );
     }).toList();
 
@@ -830,14 +826,12 @@ class _CatalogoCompletoDialog extends ConsumerWidget {
                           const ProductoSearch(),
                           const SizedBox(height: 10),
                           Wrap(spacing: 8, runSpacing: 8, children: filtros),
-                          if (esPropietario) ...[
-                            const SizedBox(height: 10),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: sucursales,
-                            ),
-                          ],
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: sucursales,
+                          ),
                         ],
                       )
                     : Row(
@@ -852,14 +846,12 @@ class _CatalogoCompletoDialog extends ConsumerWidget {
                               children: filtros,
                             ),
                           ),
-                          if (esPropietario) ...[
-                            const SizedBox(width: 14),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: sucursales,
-                            ),
-                          ],
+                          const SizedBox(width: 14),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: sucursales,
+                          ),
                         ],
                       ),
               ),
@@ -900,17 +892,14 @@ class _SucursalActualBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _SucursalLabel(sucursal: sucursal),
-                if (esPropietario) ...[
-                  const SizedBox(height: 10),
-                  Wrap(spacing: 8, runSpacing: 8, children: sucursales),
-                ],
+                const SizedBox(height: 10),
+                Wrap(spacing: 8, runSpacing: 8, children: sucursales),
               ],
             )
           : Row(
               children: [
                 Expanded(child: _SucursalLabel(sucursal: sucursal)),
-                if (esPropietario)
-                  Wrap(spacing: 8, runSpacing: 8, children: sucursales),
+                Wrap(spacing: 8, runSpacing: 8, children: sucursales),
               ],
             ),
     );
