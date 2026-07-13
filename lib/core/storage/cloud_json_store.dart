@@ -172,18 +172,18 @@ class CloudJsonStore {
     }
   }
 
-  static Future<void> save({
+  static Future<bool> save({
     required String table,
     required String id,
     required Map<dynamic, dynamic> data,
   }) async {
     if (!enabled) {
-      return;
+      return true;
     }
 
     try {
       final uri = _restUri(table, {'on_conflict': 'id'});
-      await _send(
+      final response = await _send(
         () => http.post(
           uri,
           headers: _headers(
@@ -196,8 +196,9 @@ class CloudJsonStore {
           }),
         ),
       );
+      return response.statusCode >= 200 && response.statusCode < 300;
     } catch (_) {
-      return;
+      return false;
     }
   }
 

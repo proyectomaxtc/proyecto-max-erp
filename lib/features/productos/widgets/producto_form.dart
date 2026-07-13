@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../../core/constants/branches.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../../configuracion/providers/configuracion_provider.dart';
 import '../constants/producto_categorias.dart';
 import '../models/producto_model.dart';
@@ -47,6 +48,7 @@ class _ProductoFormState extends ConsumerState<ProductoForm> {
 
   String? categoriaSeleccionada;
   bool activo = true;
+  bool guardando = false;
   double ganancia = 0;
   double margen = 0;
 
@@ -224,7 +226,32 @@ class _ProductoFormState extends ConsumerState<ProductoForm> {
     );
   }
 
+  void _mostrarErrorGuardado(Object error) {
+    if (!mounted) return;
+
+    final mensaje = error.toString().replaceFirst('Exception: ', '');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: AppColors.error,
+        content: Text(
+          mensaje.isEmpty
+              ? 'No se pudo guardar el producto. Revise la conexion e intente nuevamente.'
+              : mensaje,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
+  }
+
   Future<void> guardarProducto() async {
+    if (guardando) return;
+    if (!ref.read(authProvider).esPropietario) {
+      _mostrarErrorGuardado(
+        'Solo el propietario puede crear o modificar productos.',
+      );
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) return;
 
     final productoRepetido = _productoConNombreRepetido(nombreController.text);
@@ -233,61 +260,78 @@ class _ProductoFormState extends ConsumerState<ProductoForm> {
       return;
     }
 
-    final ahora = DateTime.now();
-    final categoria = categoriaSeleccionada == productoCategoriaOtra
-        ? categoriaController.text.trim()
-        : (categoriaSeleccionada ?? '').trim();
-    final stockPorSucursal = {
-      Branches.casaCentral: _parseNumber(stockSantaFeController.text),
-      Branches.alberdi: _parseNumber(stockAlberdiController.text),
-    };
-    final minimoPorSucursal = {
-      Branches.casaCentral: _parseNumber(stockMinimoSantaFeController.text),
-      Branches.alberdi: _parseNumber(stockMinimoAlberdiController.text),
-    };
-    final stockTotal = stockPorSucursal.values.fold<double>(
-      0,
-      (total, value) => total + value,
-    );
-    final minimoTotal = minimoPorSucursal.values.fold<double>(
-      0,
-      (total, value) => total + value,
-    );
+    setState(() {
+      guardando = true;
+    });
 
-    final imagenPersistente = await _imagenPersistente();
+    try {
+      final ahora = DateTime.now();
+      final categoria = categoriaSeleccionada == productoCategoriaOtra
+          ? categoriaController.text.trim()
+          : (categoriaSeleccionada ?? '').trim();
+      final stockPorSucursal = {
+        Branches.casaCentral: _parseNumber(stockSantaFeController.text),
+        Branches.alberdi: _parseNumber(stockAlberdiController.text),
+      };
+      final minimoPorSucursal = {
+        Branches.casaCentral: _parseNumber(stockMinimoSantaFeController.text),
+        Branches.alberdi: _parseNumber(stockMinimoAlberdiController.text),
+      };
+      final stockTotal = stockPorSucursal.values.fold<double>(
+        0,
+        (total, value) => total + value,
+      );
+      final minimoTotal = minimoPorSucursal.values.fold<double>(
+        0,
+        (total, value) => total + value,
+      );
 
-    final producto = ProductoModel(
-      id: widget.producto?.id ?? ahora.millisecondsSinceEpoch.toString(),
-      codigo: codigoController.text.trim(),
-      codigoBarras: codigoBarrasController.text.trim(),
-      nombre: nombreController.text.trim(),
-      descripcion: descripcionController.text.trim(),
-      categoria: categoria,
-      marca: marcaController.text.trim(),
-      proveedor: proveedorController.text.trim(),
-      imagenPath: imagenPersistente,
-      costo: _parseNumber(costoController.text),
-      precio: _parseNumber(precioController.text),
-      stock: stockTotal,
-      stockMinimo: minimoTotal,
-      stockPorSucursal: stockPorSucursal,
-      stockMinimoPorSucursal: minimoPorSucursal,
-      ubicacion: ubicacionController.text.trim(),
-      activo: activo,
-      creado: widget.producto?.creado ?? ahora,
-      actualizado: ahora,
-    );
+      final imagenPersistente = await _imagenPersistente();
 
-    if (widget.onGuardar != null) {
-      await widget.onGuardar!(producto);
-    } else if (widget.producto == null) {
-      await ref.read(productoProvider.notifier).agregarProducto(producto);
-    } else {
-      await ref.read(productoProvider.notifier).actualizarProducto(producto);
+      final producto = ProductoModel(
+        id: widget.producto?.id ?? ahora.millisecondsSinceEpoch.toString(),
+        codigo: codigoController.text.trim(),
+        codigoBarras: codigoBarrasController.text.trim(),
+        nombre: nombreController.text.trim(),
+        descripcion: descripcionController.text.trim(),
+        categoria: categoria,
+        marca: marcaController.text.trim(),
+        proveedor: proveedorController.text.trim(),
+        imagenPath: imagenPersistente,
+        costo: _parseNumber(costoController.text),
+        precio: _parseNumber(precioController.text),
+        stock: stockTotal,
+        stockMinimo: minimoTotal,
+        stockPorSucursal: stockPorSucursal,
+        stockMinimoPorSucursal: minimoPorSucursal,
+        ubicacion: ubicacionController.text.trim(),
+        activo: activo,
+        creado: widget.producto?.creado ?? ahora,
+        actualizado: ahora,
+      );
+
+      if (widget.onGuardar != null) {
+        await widget.onGuardar!(producto);
+      } else if (widget.producto == null) {
+        await ref.read(productoProvider.notifier).agregarProducto(producto);
+      } else {
+        await ref.read(productoProvider.notifier).actualizarProducto(producto);
+      }
+    } catch (error) {
+      _mostrarErrorGuardado(error);
+      if (mounted) {
+        setState(() {
+          guardando = false;
+        });
+      }
+      return;
     }
 
     if (!mounted) return;
 
+    setState(() {
+      guardando = false;
+    });
     Navigator.pop(context);
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -696,7 +740,9 @@ class _ProductoFormState extends ConsumerState<ProductoForm> {
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               OutlinedButton.icon(
-                onPressed: () {
+                onPressed: guardando
+                    ? null
+                    : () {
                   Navigator.pop(context);
                 },
                 icon: const Icon(Icons.close),
@@ -704,10 +750,18 @@ class _ProductoFormState extends ConsumerState<ProductoForm> {
               ),
               const SizedBox(width: 16),
               FilledButton.icon(
-                onPressed: guardarProducto,
-                icon: const Icon(Icons.save),
+                onPressed: guardando ? null : guardarProducto,
+                icon: guardando
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save),
                 label: Text(
-                  widget.producto == null
+                  guardando
+                      ? "Guardando..."
+                      : widget.producto == null
                       ? "Guardar Producto"
                       : "Actualizar Producto",
                 ),
