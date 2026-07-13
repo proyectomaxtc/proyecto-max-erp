@@ -288,7 +288,10 @@ class _VentaFormState extends ConsumerState<VentaForm> {
     final usuario = ref.read(authProvider).usuario;
     final sucursal = _sucursalOperativa();
 
-    if (estado == 'Completada' &&
+    final esEdicion = widget.venta != null;
+
+    if (!esEdicion &&
+        estado == 'Completada' &&
         ref.read(cajaProvider).turnoAbiertoParaSucursal(sucursal) == null) {
       _mostrarError(
         'Debe abrir caja de $sucursal antes de registrar una venta completada',
