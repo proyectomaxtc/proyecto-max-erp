@@ -32,6 +32,19 @@ class _OwnerAuthorizationDialogState
   bool error = false;
 
   @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      if (ref.read(authProvider).esPropietario) {
+        Navigator.pop(context, true);
+      }
+    });
+  }
+
+  @override
   void dispose() {
     claveController.dispose();
     super.dispose();
