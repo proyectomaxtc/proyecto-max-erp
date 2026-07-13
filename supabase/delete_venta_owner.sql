@@ -15,6 +15,13 @@ as $$
       and activo = true
       and lower(trim(rol)) in ('propietario', 'administrador', 'owner')
   )
+  or exists (
+    select 1
+    from public.usuarios
+    where data->>'authId' = auth.uid()::text
+      and coalesce((data->>'activo')::boolean, true) = true
+      and lower(trim(data->>'rol')) in ('propietario', 'administrador', 'owner')
+  )
 $$;
 
 create or replace function public.delete_venta_owner(venta_id text)

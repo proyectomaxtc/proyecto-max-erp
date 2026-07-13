@@ -248,19 +248,15 @@ class CloudJsonStore {
           body: jsonEncode({'venta_id': ventaId}),
         ),
       );
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        return false;
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return true;
       }
-      return true;
     } catch (_) {
-      final ventaDeleted = await delete(
-        table: 'ventas',
-        id: ventaId,
-        requireMatch: true,
-      );
-      await delete(table: 'caja', id: '$ventaId-caja');
-      return ventaDeleted;
+      // Si la funcion RPC no existe o falla por permisos, se intenta el camino
+      // directo con las politicas RLS del propietario.
     }
+
+    return _deleteVentaRows(ventaId);
   }
 
   static List<Map<dynamic, dynamic>> _localValues(Box box) {
@@ -268,6 +264,11 @@ class CloudJsonStore {
         .whereType<Map>()
         .map((value) => Map<dynamic, dynamic>.from(value))
         .toList();
+  }
+
+  static Future<bool> _deleteVentaRows(String ventaId) async {
+    await delete(table: 'caja', id: '$ventaId-caja');
+    return delete(table: 'ventas', id: ventaId, requireMatch: true);
   }
 
   static Uri _restUri(String path, [Map<String, String>? query]) {
