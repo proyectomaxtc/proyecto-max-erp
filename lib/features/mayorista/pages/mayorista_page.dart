@@ -423,9 +423,7 @@ class _MayoristaPageState extends ConsumerState<MayoristaPage> {
   }
 
   double _ultimoImporte(String line) {
-    final matches = RegExp(
-      r'(\d{1,3}(?:[.\s]\d{3})+(?:,\d+)?|\d+(?:[,.]\d+)?)',
-    ).allMatches(line).toList();
+    final matches = _importeRegex.allMatches(line).toList();
     if (matches.isEmpty) {
       return 0;
     }
@@ -434,9 +432,7 @@ class _MayoristaPageState extends ConsumerState<MayoristaPage> {
   }
 
   String _lineaSinUltimoImporte(String line) {
-    final matches = RegExp(
-      r'(\d{1,3}(?:[.\s]\d{3})+(?:,\d+)?|\d+(?:[,.]\d+)?)',
-    ).allMatches(line).toList();
+    final matches = _importeRegex.allMatches(line).toList();
     if (matches.isEmpty) {
       return line;
     }
@@ -444,6 +440,8 @@ class _MayoristaPageState extends ConsumerState<MayoristaPage> {
     final ultimo = matches.last;
     return '${line.substring(0, ultimo.start)} ${line.substring(ultimo.end)}';
   }
+
+  static final RegExp _importeRegex = RegExp(r'\$?\s*\d[\d.,]*');
 
   int _puntajeCoincidencia(ProductoModel producto, Set<String> tokensLinea) {
     final tokensProducto = _tokens(
@@ -552,16 +550,35 @@ class _MayoristaPageState extends ConsumerState<MayoristaPage> {
   }
 
   double _parseNumber(String value) {
-    final limpio = value.trim();
+    final limpio = value
+        .replaceAll('\$', '')
+        .replaceAll(RegExp(r'\s+'), '')
+        .trim();
     if (limpio.isEmpty) {
       return 0;
     }
 
     var normalizado = limpio;
-    if (limpio.contains(',')) {
+    final ultimaComa = limpio.lastIndexOf(',');
+    final ultimoPunto = limpio.lastIndexOf('.');
+
+    if (ultimaComa >= 0 && ultimoPunto >= 0) {
+      final decimal = ultimaComa > ultimoPunto ? ',' : '.';
+      final miles = decimal == ',' ? '.' : ',';
+      normalizado = limpio.replaceAll(miles, '');
+      if (decimal == ',') {
+        normalizado = normalizado.replaceAll(',', '.');
+      }
+    } else if (ultimaComa >= 0) {
       normalizado = limpio.replaceAll('.', '').replaceAll(',', '.');
-    } else if (RegExp(r'^\d{1,3}(\.\d{3})+$').hasMatch(limpio)) {
-      normalizado = limpio.replaceAll('.', '');
+    } else if (ultimoPunto >= 0) {
+      final partes = limpio.split('.');
+      if (partes.length > 2 && partes.last.length <= 2) {
+        normalizado =
+            '${partes.sublist(0, partes.length - 1).join()}.${partes.last}';
+      } else if (RegExp(r'^\d{1,3}(\.\d{3})+$').hasMatch(limpio)) {
+        normalizado = limpio.replaceAll('.', '');
+      }
     }
 
     return double.tryParse(normalizado) ?? 0;
