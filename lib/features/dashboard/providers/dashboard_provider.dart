@@ -11,5 +11,5 @@ final dashboardProvider =
     FutureProvider<DashboardStats>((ref) async {
   final service = ref.read(dashboardServiceProvider);
 
-  return service.loadDashboard();
+  return service.loadDashboard(syncCloud: false);
 });

@@ -11,6 +11,10 @@ class ProductoRepository {
     return service.obtenerProductos();
   }
 
+  List<ProductoModel> obtenerProductosLocales() {
+    return service.obtenerProductosLocales();
+  }
+
   Future<int> obtenerProximoNumero(String categoria) {
     return service.obtenerProximoNumero(categoria);
   }

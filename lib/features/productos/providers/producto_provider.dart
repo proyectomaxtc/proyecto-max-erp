@@ -20,9 +20,20 @@ class ProductoNotifier extends StateNotifier<ProductoState> {
   ProductoNotifier(this.repository) : super(const ProductoState());
 
   Future<void> cargarProductos() async {
-    final productos = await repository.obtenerProductos();
+    final locales = repository.obtenerProductosLocales();
+    if (locales.isNotEmpty) {
+      state = state.copyWith(productos: locales, loading: true);
+    } else {
+      state = state.copyWith(loading: true);
+    }
 
-    state = state.copyWith(productos: productos);
+    try {
+      final productos = await repository.obtenerProductos();
+
+      state = state.copyWith(productos: productos, loading: false);
+    } catch (_) {
+      state = state.copyWith(loading: false);
+    }
   }
 
   Future<void> agregarProducto(ProductoModel producto) async {
@@ -58,6 +69,30 @@ class ProductoNotifier extends StateNotifier<ProductoState> {
     await repository.actualizarProducto(producto);
 
     await cargarProductos();
+  }
+
+  Future<int> actualizarPreciosMayoristas(Map<String, double> precios) async {
+    if (precios.isEmpty) {
+      return 0;
+    }
+
+    final ahora = DateTime.now();
+    var actualizados = 0;
+
+    for (final producto in state.productos) {
+      final precio = precios[producto.id];
+      if (precio == null || precio <= 0) {
+        continue;
+      }
+
+      await repository.actualizarProducto(
+        producto.copyWith(precioMayorista: precio, actualizado: ahora),
+      );
+      actualizados++;
+    }
+
+    await cargarProductos();
+    return actualizados;
   }
 
   Future<int> actualizarLlavesDoblePaleta({

@@ -26,6 +26,38 @@ class ProductoTable extends ConsumerWidget {
     final compact = MediaQuery.sizeOf(context).width < 760;
 
     if (productos.isEmpty) {
+      if (state.loading) {
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(40),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: const Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text(
+                "Cargando productos",
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                "Sincronizando el catalogo con la nube.",
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            ],
+          ),
+        );
+      }
+
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.all(40),

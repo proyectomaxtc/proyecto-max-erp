@@ -11,28 +11,41 @@ import '../../ventas/models/venta_model.dart';
 import '../models/dashboard_stats.dart';
 
 class DashboardService {
-  Future<DashboardStats> loadDashboard() async {
+  Future<DashboardStats> loadDashboard({bool syncCloud = true}) async {
     final movimientos = await _readBox(
       StorageBoxes.caja,
       CajaMovimientoModel.fromMap,
+      syncCloud: syncCloud,
     );
     final turnos = await _readBox(
       StorageBoxes.cajaTurnos,
       CajaTurnoModel.fromMap,
+      syncCloud: syncCloud,
     );
-    final ventas = await _readBox(StorageBoxes.ventas, VentaModel.fromMap);
-    final compras = await _readBox(StorageBoxes.compras, CompraModel.fromMap);
+    final ventas = await _readBox(
+      StorageBoxes.ventas,
+      VentaModel.fromMap,
+      syncCloud: syncCloud,
+    );
+    final compras = await _readBox(
+      StorageBoxes.compras,
+      CompraModel.fromMap,
+      syncCloud: syncCloud,
+    );
     final productos = await _readBox(
       StorageBoxes.productos,
       ProductoModel.fromMap,
+      syncCloud: syncCloud,
     );
     final servicios = await _readBox(
       StorageBoxes.servicios,
       ServicioModel.fromMap,
+      syncCloud: syncCloud,
     );
     final clientes = await _readBox(
       StorageBoxes.clientes,
       ClienteModel.fromMap,
+      syncCloud: syncCloud,
     );
 
     final hoy = DateTime.now();
@@ -89,10 +102,16 @@ class DashboardService {
 
   Future<List<T>> _readBox<T>(
     String boxName,
-    T Function(Map<dynamic, dynamic> map) fromMap,
-  ) async {
+    T Function(Map<dynamic, dynamic> map) fromMap, {
+    required bool syncCloud,
+  }) async {
     final box = StorageService.box(boxName);
-    final values = await CloudJsonStore.syncBox(table: boxName, box: box);
+    final values = syncCloud
+        ? await CloudJsonStore.syncBox(table: boxName, box: box)
+        : box.values
+              .whereType<Map>()
+              .map((value) => Map<dynamic, dynamic>.from(value))
+              .toList();
 
     return values.map(fromMap).toList();
   }

@@ -7,9 +7,11 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/pdf_saver.dart';
 import '../../../shared/layout/main_layout.dart';
+import '../../../shared/widgets/dialogs/app_dialog.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../productos/models/producto_model.dart';
 import '../../productos/providers/producto_provider.dart';
+import '../../ventas/widgets/venta_form.dart';
 
 class MayoristaPage extends ConsumerStatefulWidget {
   const MayoristaPage({super.key});
@@ -199,6 +201,170 @@ class _MayoristaPageState extends ConsumerState<MayoristaPage> {
     );
   }
 
+  void _abrirVentaMayorista() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) {
+        return const AppDialog(
+          title: 'Nueva Venta Mayorista',
+          child: VentaForm(mayorista: true),
+        );
+      },
+    );
+  }
+
+  Future<void> _abrirImportadorMayorista(List<ProductoModel> productos) async {
+    final controller = TextEditingController();
+    final texto = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Importar lista mayorista'),
+          content: SizedBox(
+            width: 680,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Pegue aqui el texto copiado de un PDF, Excel o lista. La app buscara coincidencias por codigo, codigo de proveedor o nombre y tomara el ultimo importe de cada linea como precio mayorista.',
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: controller,
+                  minLines: 10,
+                  maxLines: 14,
+                  decoration: const InputDecoration(
+                    hintText:
+                        'Ejemplo: LCC-04301 Andif 857-40 Cerradura ... 14910',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(context, controller.text),
+              icon: const Icon(Icons.upload_file_outlined),
+              label: const Text('Importar'),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+
+    if (texto == null || texto.trim().isEmpty) {
+      return;
+    }
+
+    final resultado = _extraerPreciosMayoristas(texto, productos);
+    if (resultado.precios.isEmpty) {
+      _mensaje(
+        'No se encontraron coincidencias para actualizar.',
+        AppColors.warning,
+      );
+      return;
+    }
+
+    setState(() => guardando = true);
+    final actualizados = await ref
+        .read(productoProvider.notifier)
+        .actualizarPreciosMayoristas(resultado.precios);
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() => guardando = false);
+    _mensaje(
+      'Precios mayoristas actualizados: $actualizados. Lineas sin coincidencia: ${resultado.ignoradas}.',
+      AppColors.success,
+    );
+  }
+
+  _ImportMayoristaResult _extraerPreciosMayoristas(
+    String texto,
+    List<ProductoModel> productos,
+  ) {
+    final precios = <String, double>{};
+    var ignoradas = 0;
+    final activos = productos.where((producto) => producto.activo).toList();
+
+    for (final rawLine in texto.split(RegExp(r'\r?\n'))) {
+      final line = rawLine.trim();
+      if (line.isEmpty) {
+        continue;
+      }
+
+      final producto = _buscarProductoEnLinea(line, activos);
+      final precio = _ultimoImporte(line);
+      if (producto == null || precio <= 0) {
+        ignoradas++;
+        continue;
+      }
+
+      precios[producto.id] = precio;
+    }
+
+    return _ImportMayoristaResult(precios: precios, ignoradas: ignoradas);
+  }
+
+  ProductoModel? _buscarProductoEnLinea(
+    String line,
+    List<ProductoModel> productos,
+  ) {
+    final normalizada = _normalizar(line);
+    final porCodigo = [...productos]..sort(
+      (a, b) => b.codigo.length.compareTo(a.codigo.length),
+    );
+
+    for (final producto in porCodigo) {
+      final codigo = _normalizar(producto.codigo);
+      final barras = _normalizar(producto.codigoBarras);
+      if (codigo.length > 2 && normalizada.contains(codigo)) {
+        return producto;
+      }
+      if (barras.length > 2 && normalizada.contains(barras)) {
+        return producto;
+      }
+    }
+
+    for (final producto in productos) {
+      final nombre = _normalizar(producto.nombre);
+      if (nombre.length > 4 && normalizada.contains(nombre)) {
+        return producto;
+      }
+    }
+
+    return null;
+  }
+
+  double _ultimoImporte(String line) {
+    final matches = RegExp(
+      r'(\d{1,3}(?:[.\s]\d{3})+(?:,\d+)?|\d+(?:[,.]\d+)?)',
+    ).allMatches(line).toList();
+    if (matches.isEmpty) {
+      return 0;
+    }
+
+    return _parseNumber(matches.last.group(0) ?? '');
+  }
+
+  String _normalizar(String value) {
+    return value
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ');
+  }
+
   void _mensaje(String texto, Color color) {
     ScaffoldMessenger.of(
       context,
@@ -206,7 +372,18 @@ class _MayoristaPageState extends ConsumerState<MayoristaPage> {
   }
 
   double _parseNumber(String value) {
-    final normalizado = value.trim().replaceAll('.', '').replaceAll(',', '.');
+    final limpio = value.trim();
+    if (limpio.isEmpty) {
+      return 0;
+    }
+
+    var normalizado = limpio;
+    if (limpio.contains(',')) {
+      normalizado = limpio.replaceAll('.', '').replaceAll(',', '.');
+    } else if (RegExp(r'^\d{1,3}(\.\d{3})+$').hasMatch(limpio)) {
+      normalizado = limpio.replaceAll('.', '');
+    }
+
     return double.tryParse(normalizado) ?? 0;
   }
 
@@ -296,6 +473,20 @@ class _MayoristaPageState extends ConsumerState<MayoristaPage> {
                         icon: const Icon(Icons.picture_as_pdf_outlined),
                         label: const Text('Descargar lista PDF'),
                       ),
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        onPressed: guardando
+                            ? null
+                            : () => _abrirImportadorMayorista(productos),
+                        icon: const Icon(Icons.upload_file_outlined),
+                        label: const Text('Importar lista/PDF'),
+                      ),
+                      const SizedBox(height: 10),
+                      FilledButton.icon(
+                        onPressed: _abrirVentaMayorista,
+                        icon: const Icon(Icons.point_of_sale_outlined),
+                        label: const Text('Venta mayorista'),
+                      ),
                     ],
                   )
                 : Row(
@@ -312,6 +503,20 @@ class _MayoristaPageState extends ConsumerState<MayoristaPage> {
                         onPressed: () => _generarPdf(productos),
                         icon: const Icon(Icons.picture_as_pdf_outlined),
                         label: const Text('Descargar lista PDF'),
+                      ),
+                      const SizedBox(width: 10),
+                      OutlinedButton.icon(
+                        onPressed: guardando
+                            ? null
+                            : () => _abrirImportadorMayorista(productos),
+                        icon: const Icon(Icons.upload_file_outlined),
+                        label: const Text('Importar lista/PDF'),
+                      ),
+                      const SizedBox(width: 10),
+                      FilledButton.icon(
+                        onPressed: _abrirVentaMayorista,
+                        icon: const Icon(Icons.point_of_sale_outlined),
+                        label: const Text('Venta mayorista'),
                       ),
                     ],
                   ),
@@ -525,4 +730,14 @@ class _Tag extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ImportMayoristaResult {
+  final Map<String, double> precios;
+  final int ignoradas;
+
+  const _ImportMayoristaResult({
+    required this.precios,
+    required this.ignoradas,
+  });
 }

@@ -10,6 +10,13 @@ import '../models/producto_model.dart';
 class ProductoService {
   Box get _box => StorageService.box(StorageBoxes.productos);
 
+  List<ProductoModel> obtenerProductosLocales() {
+    return _box.values
+        .whereType<Map>()
+        .map((value) => ProductoModel.fromMap(Map<dynamic, dynamic>.from(value)))
+        .toList();
+  }
+
   Future<List<ProductoModel>> obtenerProductos() async {
     final values = await CloudJsonStore.syncBox(
       table: StorageBoxes.productos,

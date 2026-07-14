@@ -29,8 +29,9 @@ import '../providers/venta_provider.dart';
 
 class VentaForm extends ConsumerStatefulWidget {
   final VentaModel? venta;
+  final bool mayorista;
 
-  const VentaForm({super.key, this.venta});
+  const VentaForm({super.key, this.venta, this.mayorista = false});
 
   @override
   ConsumerState<VentaForm> createState() => _VentaFormState();
@@ -79,6 +80,8 @@ class _VentaFormState extends ConsumerState<VentaForm> {
       descuentoController.text = venta.descuento.toStringAsFixed(0);
       observacionesController.text = venta.observaciones;
       items.addAll(venta.items);
+    } else if (widget.mayorista) {
+      observacionesController.text = 'Venta mayorista';
     }
 
     descuentoController.addListener(() {
@@ -141,7 +144,7 @@ class _VentaFormState extends ConsumerState<VentaForm> {
           nombre: item.nombre,
           cantidad: nuevaCantidad,
           precioUnitario: item.precioUnitario,
-            costoUnitario: item.costoUnitario,
+          costoUnitario: item.costoUnitario,
         );
       } else {
         items.add(
@@ -150,7 +153,7 @@ class _VentaFormState extends ConsumerState<VentaForm> {
             codigo: producto.codigo,
             nombre: producto.nombre,
             cantidad: 1,
-            precioUnitario: producto.precio,
+            precioUnitario: _precioVenta(producto),
             costoUnitario: producto.costo,
           ),
         );
@@ -200,11 +203,19 @@ class _VentaFormState extends ConsumerState<VentaForm> {
           codigo: producto.codigo,
           nombre: producto.nombre,
           cantidad: 1,
-          precioUnitario: producto.precio,
+          precioUnitario: _precioVenta(producto),
           costoUnitario: producto.costo,
         ),
       );
     });
+  }
+
+  double _precioVenta(ProductoModel producto) {
+    if (widget.mayorista && producto.precioMayorista > 0) {
+      return producto.precioMayorista;
+    }
+
+    return producto.precio;
   }
 
   void actualizarCantidad(VentaItemModel item, double cantidad) {
@@ -813,6 +824,27 @@ class _VentaFormState extends ConsumerState<VentaForm> {
               });
             },
           ),
+          if (widget.mayorista) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: .12),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppColors.primary.withValues(alpha: .35),
+                ),
+              ),
+              child: const Text(
+                'Venta mayorista: se usara el precio mayorista cargado en cada producto. Si no tiene precio mayorista, se usa el precio de venta normal.',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            SizedBox(height: compact ? 10 : 12),
+          ],
           SizedBox(height: compact ? 8 : 12),
           if (modoCopiasLlaves) ...[
             if (productos.isEmpty) ...[
@@ -854,6 +886,7 @@ class _VentaFormState extends ConsumerState<VentaForm> {
                 productos: productos,
                 productoSeleccionado: productoSeleccionado,
                 sucursal: _sucursalOperativa(),
+                mayorista: widget.mayorista,
                 decoration: decoration,
                 onSelected: (producto) {
                   setState(() {
@@ -883,6 +916,7 @@ class _VentaFormState extends ConsumerState<VentaForm> {
                       productos: productos,
                       productoSeleccionado: productoSeleccionado,
                       sucursal: _sucursalOperativa(),
+                      mayorista: widget.mayorista,
                       decoration: decoration,
                       onSelected: (producto) {
                         setState(() {
@@ -1016,6 +1050,7 @@ class _ProductSearchPicker extends StatelessWidget {
   final List<ProductoModel> productos;
   final ProductoModel? productoSeleccionado;
   final String sucursal;
+  final bool mayorista;
   final InputDecoration Function(String label) decoration;
   final ValueChanged<ProductoModel> onSelected;
   final VoidCallback onCleared;
@@ -1024,6 +1059,7 @@ class _ProductSearchPicker extends StatelessWidget {
     required this.productos,
     required this.productoSeleccionado,
     required this.sucursal,
+    required this.mayorista,
     required this.decoration,
     required this.onSelected,
     required this.onCleared,
@@ -1126,7 +1162,7 @@ class _ProductSearchPicker extends StatelessWidget {
                       style: const TextStyle(color: AppColors.textSecondary),
                     ),
                     trailing: Text(
-                      CurrencyFormatter.format(producto.precio),
+                      CurrencyFormatter.format(_precioProducto(producto)),
                       style: const TextStyle(
                         color: AppColors.primary,
                         fontWeight: FontWeight.bold,
@@ -1145,6 +1181,14 @@ class _ProductSearchPicker extends StatelessWidget {
 
   String _displayProducto(ProductoModel producto) {
     return '${producto.codigo} - ${producto.nombre}';
+  }
+
+  double _precioProducto(ProductoModel producto) {
+    if (mayorista && producto.precioMayorista > 0) {
+      return producto.precioMayorista;
+    }
+
+    return producto.precio;
   }
 
   String _textoBusqueda(ProductoModel producto) {
