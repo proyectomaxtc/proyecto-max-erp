@@ -944,7 +944,7 @@ class _VentaFormState extends ConsumerState<VentaForm> {
           _ItemsTable(
             items: items,
             compact: compact,
-            puedeEditarPrecio: esPropietario,
+            puedeEditarPrecio: esPropietario || widget.mayorista,
             onCantidadChanged: actualizarCantidad,
             onPrecioChanged: actualizarPrecioItem,
             onRemove: (item) {
