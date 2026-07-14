@@ -27,10 +27,20 @@ class _CompraFormState extends ConsumerState<CompraForm> {
 
   ProductoModel? productoSeleccionado;
   String estado = 'Recibida';
+  late String sucursalCompra;
   final List<CompraItemModel> items = [];
 
   double get total {
     return items.fold(0, (total, item) => total + item.subtotal);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final sucursalActual = ref.read(productoProvider).sucursalSeleccionada;
+    sucursalCompra = sucursalActual == Branches.alberdi
+        ? Branches.alberdi
+        : Branches.casaCentral;
   }
 
   @override
@@ -54,27 +64,58 @@ class _CompraFormState extends ConsumerState<CompraForm> {
 
   void agregarItem() {
     final producto = productoSeleccionado;
-    final cantidad = double.tryParse(cantidadController.text) ?? 0;
-    final costo = double.tryParse(costoController.text) ?? 0;
+    final cantidad = _parseNumber(cantidadController.text);
+    final costo = _parseNumber(costoController.text);
 
     if (producto == null || cantidad <= 0 || costo <= 0) {
       return;
     }
 
     setState(() {
-      items.add(
-        CompraItemModel(
-          productoId: producto.id,
-          codigo: producto.codigo,
-          nombre: producto.nombre,
-          cantidad: cantidad,
+      final index = items.indexWhere((item) => item.productoId == producto.id);
+      if (index >= 0) {
+        final item = items[index];
+        items[index] = CompraItemModel(
+          productoId: item.productoId,
+          codigo: item.codigo,
+          nombre: item.nombre,
+          cantidad: item.cantidad + cantidad,
           costoUnitario: costo,
-        ),
-      );
+        );
+      } else {
+        items.add(
+          CompraItemModel(
+            productoId: producto.id,
+            codigo: producto.codigo,
+            nombre: producto.nombre,
+            cantidad: cantidad,
+            costoUnitario: costo,
+          ),
+        );
+      }
       productoSeleccionado = null;
       cantidadController.text = '1';
       costoController.clear();
     });
+  }
+
+  double _parseNumber(String value) {
+    final clean = value.trim();
+    if (clean.isEmpty) {
+      return 0;
+    }
+
+    final hasComma = clean.contains(',');
+    final hasDot = clean.contains('.');
+    var normalized = clean;
+
+    if (hasComma) {
+      normalized = clean.replaceAll('.', '').replaceAll(',', '.');
+    } else if (hasDot && RegExp(r'^\d{1,3}(\.\d{3})+$').hasMatch(clean)) {
+      normalized = clean.replaceAll('.', '');
+    }
+
+    return double.tryParse(normalized) ?? 0;
   }
 
   Future<void> guardarCompra() async {
@@ -93,7 +134,7 @@ class _CompraFormState extends ConsumerState<CompraForm> {
     }
 
     final ahora = DateTime.now();
-    final sucursal = ref.read(productoProvider).sucursalSeleccionada;
+    final sucursal = sucursalCompra;
     final numero = await ref
         .read(compraProvider.notifier)
         .generarNumeroCompra();
@@ -133,7 +174,7 @@ class _CompraFormState extends ConsumerState<CompraForm> {
   Future<void> _impactarStock() async {
     final productos = ref.read(productoProvider).productos;
     final notifier = ref.read(productoProvider.notifier);
-    final sucursal = ref.read(productoProvider).sucursalSeleccionada;
+    final sucursal = sucursalCompra;
 
     for (final item in items) {
       final producto = productos.firstWhere(
@@ -162,8 +203,12 @@ class _CompraFormState extends ConsumerState<CompraForm> {
 
   @override
   Widget build(BuildContext context) {
-    final productos = ref.watch(productoProvider).productos;
-    final sucursal = ref.watch(productoProvider).sucursalSeleccionada;
+    final productos = ref
+        .watch(productoProvider)
+        .productos
+        .where((producto) => producto.activo)
+        .toList();
+    final sucursal = sucursalCompra;
     final compact = MediaQuery.sizeOf(context).width < 760;
     final sucursalLabel = sucursal == Branches.casaCentral
         ? 'Casa Central Santa Fe'
@@ -198,6 +243,27 @@ class _CompraFormState extends ConsumerState<CompraForm> {
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 18),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(
+                value: Branches.casaCentral,
+                label: Text('Santa Fe'),
+                icon: Icon(Icons.storefront_outlined),
+              ),
+              ButtonSegment(
+                value: Branches.alberdi,
+                label: Text('Alberdi'),
+                icon: Icon(Icons.store_mall_directory_outlined),
+              ),
+            ],
+            selected: {sucursalCompra},
+            onSelectionChanged: (value) {
+              setState(() {
+                sucursalCompra = value.first;
+              });
+            },
           ),
           const SizedBox(height: 18),
           _ResponsiveFields(
@@ -241,27 +307,20 @@ class _CompraFormState extends ConsumerState<CompraForm> {
               ? Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    DropdownButtonFormField<ProductoModel>(
-                      initialValue: productoSeleccionado,
-                      decoration: decoration("Producto"),
-                      dropdownColor: AppColors.surface,
-                      isExpanded: true,
-                      items: productos
-                          .map(
-                            (producto) => DropdownMenuItem(
-                              value: producto,
-                              child: Text(
-                                '${producto.codigo} - ${producto.nombre}',
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (producto) {
+                    _CompraProductPicker(
+                      productos: productos,
+                      productoSeleccionado: productoSeleccionado,
+                      decoration: decoration,
+                      onSelected: (producto) {
                         setState(() {
                           productoSeleccionado = producto;
-                          costoController.text =
-                              producto?.costo.toString() ?? '';
+                          costoController.text = producto.costo.toString();
+                        });
+                      },
+                      onCleared: () {
+                        setState(() {
+                          productoSeleccionado = null;
+                          costoController.clear();
                         });
                       },
                     ),
@@ -295,25 +354,20 @@ class _CompraFormState extends ConsumerState<CompraForm> {
                   children: [
                     Expanded(
                       flex: 2,
-                      child: DropdownButtonFormField<ProductoModel>(
-                        initialValue: productoSeleccionado,
-                        decoration: decoration("Producto"),
-                        dropdownColor: AppColors.surface,
-                        items: productos
-                            .map(
-                              (producto) => DropdownMenuItem(
-                                value: producto,
-                                child: Text(
-                                  '${producto.codigo} - ${producto.nombre}',
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (producto) {
+                      child: _CompraProductPicker(
+                        productos: productos,
+                        productoSeleccionado: productoSeleccionado,
+                        decoration: decoration,
+                        onSelected: (producto) {
                           setState(() {
                             productoSeleccionado = producto;
-                            costoController.text =
-                                producto?.costo.toString() ?? '';
+                            costoController.text = producto.costo.toString();
+                          });
+                        },
+                        onCleared: () {
+                          setState(() {
+                            productoSeleccionado = null;
+                            costoController.clear();
                           });
                         },
                       ),
@@ -469,6 +523,147 @@ class _CompraFormState extends ConsumerState<CompraForm> {
         ],
       ),
     );
+  }
+}
+
+class _CompraProductPicker extends StatelessWidget {
+  final List<ProductoModel> productos;
+  final ProductoModel? productoSeleccionado;
+  final InputDecoration Function(String label) decoration;
+  final ValueChanged<ProductoModel> onSelected;
+  final VoidCallback onCleared;
+
+  const _CompraProductPicker({
+    required this.productos,
+    required this.productoSeleccionado,
+    required this.decoration,
+    required this.onSelected,
+    required this.onCleared,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Autocomplete<ProductoModel>(
+      key: ValueKey(productoSeleccionado?.id ?? 'compra-producto-empty'),
+      initialValue: TextEditingValue(
+        text: productoSeleccionado == null
+            ? ''
+            : _displayProducto(productoSeleccionado!),
+      ),
+      displayStringForOption: _displayProducto,
+      optionsBuilder: (textEditingValue) {
+        final query = _normalizar(textEditingValue.text);
+        final terms = query.split(' ').where((term) => term.isNotEmpty);
+        final base = [...productos]..sort(
+          (a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()),
+        );
+
+        if (query.isEmpty) {
+          return base.take(12);
+        }
+
+        return base.where((producto) {
+          final texto = _textoBusqueda(producto);
+          return terms.every(texto.contains);
+        }).take(20);
+      },
+      onSelected: onSelected,
+      fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+        return TextFormField(
+          controller: controller,
+          focusNode: focusNode,
+          decoration: decoration("Buscar producto")
+              .copyWith(
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: controller.text.trim().isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: "Limpiar producto",
+                        onPressed: () {
+                          controller.clear();
+                          onCleared();
+                          focusNode.requestFocus();
+                        },
+                        icon: const Icon(Icons.close),
+                      ),
+              ),
+          onFieldSubmitted: (_) => onFieldSubmitted(),
+        );
+      },
+      optionsViewBuilder: (context, onSelectedOption, options) {
+        final lista = options.toList();
+
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            color: AppColors.surface,
+            elevation: 8,
+            borderRadius: BorderRadius.circular(14),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 320, maxWidth: 720),
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                shrinkWrap: true,
+                itemCount: lista.length,
+                separatorBuilder: (_, __) =>
+                    const Divider(height: 1, color: AppColors.border),
+                itemBuilder: (context, index) {
+                  final producto = lista[index];
+
+                  return ListTile(
+                    dense: true,
+                    title: Text(
+                      producto.nombre,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    subtitle: Text(
+                      '${producto.codigo} - SF ${producto.stockEnSucursal(Branches.casaCentral).toStringAsFixed(0)} - ALB ${producto.stockEnSucursal(Branches.alberdi).toStringAsFixed(0)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: AppColors.textSecondary),
+                    ),
+                    trailing: Text(
+                      CurrencyFormatter.format(producto.costo),
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    onTap: () => onSelectedOption(producto),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  String _displayProducto(ProductoModel producto) {
+    return '${producto.codigo} - ${producto.nombre}';
+  }
+
+  String _textoBusqueda(ProductoModel producto) {
+    return _normalizar(
+      [
+        producto.codigo,
+        producto.codigoBarras,
+        producto.nombre,
+        producto.categoria,
+        producto.marca,
+        producto.proveedor,
+      ].join(' '),
+    );
+  }
+
+  String _normalizar(String value) {
+    return value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
   }
 }
 

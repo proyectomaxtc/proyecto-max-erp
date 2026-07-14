@@ -286,6 +286,10 @@ class _VentaFormState extends ConsumerState<VentaForm> {
       return;
     }
 
+    if (!_validarStockDisponible()) {
+      return;
+    }
+
     final usuario = ref.read(authProvider).usuario;
     final sucursal = _sucursalOperativa();
 
@@ -380,6 +384,32 @@ class _VentaFormState extends ConsumerState<VentaForm> {
         ),
       ),
     );
+  }
+
+  bool _validarStockDisponible() {
+    final productos = ref.read(productoProvider).productos;
+
+    for (final item in items) {
+      final producto = productos.firstWhere(
+        (producto) => producto.id == item.productoId,
+        orElse: () => ProductoModel.empty(),
+      );
+
+      if (producto.id.isEmpty) {
+        _mostrarError('No se encontro el producto ${item.nombre}');
+        return false;
+      }
+
+      final disponible = _stockDisponible(producto);
+      if (item.cantidad > disponible) {
+        _mostrarError(
+          'Stock insuficiente para ${item.nombre}. Disponible: ${disponible.toStringAsFixed(0)}',
+        );
+        return false;
+      }
+    }
+
+    return true;
   }
 
   Future<void> _descontarStock() async {
