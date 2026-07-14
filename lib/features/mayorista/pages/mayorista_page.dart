@@ -320,7 +320,8 @@ class _MayoristaPageState extends ConsumerState<MayoristaPage> {
     String line,
     List<ProductoModel> productos,
   ) {
-    final normalizada = _normalizar(line);
+    final normalizada = _normalizar(_lineaSinUltimoImporte(line));
+    final tokensLinea = _tokens(normalizada).toSet();
     final porCodigo = [...productos]..sort(
       (a, b) => b.codigo.length.compareTo(a.codigo.length),
     );
@@ -336,11 +337,23 @@ class _MayoristaPageState extends ConsumerState<MayoristaPage> {
       }
     }
 
+    ProductoModel? mejorProducto;
+    var mejorPuntaje = 0;
+    var segundoPuntaje = 0;
+
     for (final producto in productos) {
-      final nombre = _normalizar(producto.nombre);
-      if (nombre.length > 4 && normalizada.contains(nombre)) {
-        return producto;
+      final puntaje = _puntajeCoincidencia(producto, tokensLinea);
+      if (puntaje > mejorPuntaje) {
+        segundoPuntaje = mejorPuntaje;
+        mejorPuntaje = puntaje;
+        mejorProducto = producto;
+      } else if (puntaje > segundoPuntaje) {
+        segundoPuntaje = puntaje;
       }
+    }
+
+    if (mejorPuntaje >= 5 && mejorPuntaje > segundoPuntaje) {
+      return mejorProducto;
     }
 
     return null;
@@ -356,6 +369,110 @@ class _MayoristaPageState extends ConsumerState<MayoristaPage> {
 
     return _parseNumber(matches.last.group(0) ?? '');
   }
+
+  String _lineaSinUltimoImporte(String line) {
+    final matches = RegExp(
+      r'(\d{1,3}(?:[.\s]\d{3})+(?:,\d+)?|\d+(?:[,.]\d+)?)',
+    ).allMatches(line).toList();
+    if (matches.isEmpty) {
+      return line;
+    }
+
+    final ultimo = matches.last;
+    return '${line.substring(0, ultimo.start)} ${line.substring(ultimo.end)}';
+  }
+
+  int _puntajeCoincidencia(ProductoModel producto, Set<String> tokensLinea) {
+    final tokensProducto = _tokens(
+      _normalizar(
+        [
+          producto.nombre,
+          producto.categoria,
+          producto.marca,
+          producto.codigoBarras,
+        ].join(' '),
+      ),
+    );
+    var puntaje = 0;
+    var tieneDistintivo = false;
+
+    for (final tokenProducto in tokensProducto) {
+      final match = tokensLinea.any(
+        (tokenLinea) => _tokensCompatibles(tokenProducto, tokenLinea),
+      );
+      if (!match) {
+        continue;
+      }
+
+      if (RegExp(r'\d').hasMatch(tokenProducto)) {
+        puntaje += 4;
+        tieneDistintivo = true;
+      } else if (_esTokenDistintivo(tokenProducto)) {
+        puntaje += 2;
+        tieneDistintivo = true;
+      } else {
+        puntaje += 1;
+      }
+    }
+
+    return tieneDistintivo ? puntaje : 0;
+  }
+
+  List<String> _tokens(String value) {
+    return value
+        .split(' ')
+        .map((token) => token.trim())
+        .where((token) => token.length > 1 && !_tokensGenericos.contains(token))
+        .toList();
+  }
+
+  bool _tokensCompatibles(String a, String b) {
+    if (a == b) {
+      return true;
+    }
+    if (a.length >= 5 && b.length >= 5) {
+      return a.contains(b) || b.contains(a);
+    }
+
+    return false;
+  }
+
+  bool _esTokenDistintivo(String token) {
+    return token.length >= 4 && !_tokensGenericos.contains(token);
+  }
+
+  static const Set<String> _tokensGenericos = {
+    'de',
+    'del',
+    'la',
+    'el',
+    'en',
+    'con',
+    'para',
+    'tipo',
+    'modelo',
+    'precio',
+    'cerradura',
+    'cerraduras',
+    'cerrojo',
+    'cerrojos',
+    'candado',
+    'candados',
+    'picaporte',
+    'picaportes',
+    'pasador',
+    'pasadores',
+    'seguridad',
+    'bolsa',
+    'placa',
+    'placas',
+    'perno',
+    'pernos',
+    'doble',
+    'linea',
+    'pesado',
+    'comun',
+  };
 
   String _normalizar(String value) {
     return value
