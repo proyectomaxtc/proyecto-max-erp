@@ -337,6 +337,11 @@ class _MayoristaPageState extends ConsumerState<MayoristaPage> {
       }
     }
 
+    final porMarcaModelo = _buscarPorMarcaModelo(tokensLinea, productos);
+    if (porMarcaModelo != null) {
+      return porMarcaModelo;
+    }
+
     ProductoModel? mejorProducto;
     var mejorPuntaje = 0;
     var segundoPuntaje = 0;
@@ -354,6 +359,64 @@ class _MayoristaPageState extends ConsumerState<MayoristaPage> {
 
     if (mejorPuntaje >= 5 && mejorPuntaje > segundoPuntaje) {
       return mejorProducto;
+    }
+
+    return null;
+  }
+
+  ProductoModel? _buscarPorMarcaModelo(
+    Set<String> tokensLinea,
+    List<ProductoModel> productos,
+  ) {
+    final marcasLinea = tokensLinea
+        .where((token) => RegExp(r'^[a-z]+$').hasMatch(token))
+        .where((token) => !_tokensGenericos.contains(token))
+        .toSet();
+    final numerosLinea = tokensLinea
+        .where((token) => RegExp(r'\d').hasMatch(token))
+        .toSet();
+
+    if (marcasLinea.isEmpty || numerosLinea.isEmpty) {
+      return null;
+    }
+
+    final candidatos = <_ProductoMatch>[];
+    for (final producto in productos) {
+      final textoProducto = _normalizar(
+        [
+          producto.nombre,
+          producto.marca,
+          producto.codigo,
+          producto.codigoBarras,
+        ].join(' '),
+      );
+      final tokensProducto = _tokens(textoProducto).toSet();
+      final coincideMarca = marcasLinea.any(tokensProducto.contains);
+      final coincideNumero = numerosLinea.any(tokensProducto.contains);
+
+      if (!coincideMarca || !coincideNumero) {
+        continue;
+      }
+
+      final puntaje = tokensProducto
+          .where(tokensLinea.contains)
+          .fold<int>(0, (total, token) {
+        if (RegExp(r'\d').hasMatch(token)) {
+          return total + 5;
+        }
+        return total + 2;
+      });
+      candidatos.add(_ProductoMatch(producto: producto, puntaje: puntaje));
+    }
+
+    if (candidatos.isEmpty) {
+      return null;
+    }
+
+    candidatos.sort((a, b) => b.puntaje.compareTo(a.puntaje));
+    if (candidatos.length == 1 ||
+        candidatos.first.puntaje > candidatos[1].puntaje) {
+      return candidatos.first.producto;
     }
 
     return null;
@@ -857,4 +920,11 @@ class _ImportMayoristaResult {
     required this.precios,
     required this.ignoradas,
   });
+}
+
+class _ProductoMatch {
+  final ProductoModel producto;
+  final int puntaje;
+
+  const _ProductoMatch({required this.producto, required this.puntaje});
 }
