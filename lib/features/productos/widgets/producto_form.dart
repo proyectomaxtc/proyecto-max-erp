@@ -347,57 +347,74 @@ class _ProductoFormState extends ConsumerState<ProductoForm> {
   }
 
   Future<void> cargarFoto() async {
-    const typeGroup = XTypeGroup(
-      label: 'Imagenes',
-      extensions: ['jpg', 'jpeg', 'png', 'webp'],
-    );
-    final archivo = await openFile(acceptedTypeGroups: [typeGroup]);
+    try {
+      const typeGroup = XTypeGroup(
+        label: 'Imagenes',
+        extensions: ['jpg', 'jpeg', 'png', 'webp', 'jfif', 'heic', 'heif'],
+        mimeTypes: [
+          'image/jpeg',
+          'image/png',
+          'image/webp',
+          'image/heic',
+          'image/heif',
+        ],
+      );
+      final archivo = await openFile(acceptedTypeGroups: [typeGroup]);
 
-    if (archivo == null) {
-      return;
-    }
+      if (archivo == null) {
+        return;
+      }
 
-    final bytes = await archivo.readAsBytes();
-    final extension = p.extension(archivo.name).toLowerCase();
+      final bytes = await archivo.readAsBytes();
+      if (bytes.isEmpty) {
+        _mostrarErrorFoto(
+          'No se pudo leer la foto seleccionada. Intente descargarla desde WhatsApp y volver a elegirla.',
+        );
+        return;
+      }
+      final extension = p.extension(archivo.name).toLowerCase();
+      final mime = _mimeImagen(extension, archivo.mimeType);
 
-    if (kIsWeb) {
-      final mime = switch (extension) {
-        '.jpg' || '.jpeg' => 'image/jpeg',
-        '.webp' => 'image/webp',
-        _ => 'image/png',
-      };
+      if (kIsWeb) {
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          imagenPathController.text =
+              'data:$mime;base64,${base64Encode(bytes)}';
+        });
+        _advertirFormatoFoto(mime);
+        return;
+      }
+
+      final appDir = await getApplicationDocumentsDirectory();
+      final fotosDir = Directory(
+        p.join(appDir.path, 'proyecto_max', 'productos'),
+      );
+      if (!await fotosDir.exists()) {
+        await fotosDir.create(recursive: true);
+      }
+
+      final nombreArchivo =
+          '${codigoController.text.trim()}-${DateTime.now().millisecondsSinceEpoch}$extension';
+      final destino = File(p.join(fotosDir.path, nombreArchivo));
+
+      await destino.writeAsBytes(bytes);
 
       if (!mounted) {
         return;
       }
 
       setState(() {
-        imagenPathController.text = 'data:$mime;base64,${base64Encode(bytes)}';
+        imagenPathController.text = destino.path;
       });
-      return;
+      _advertirFormatoFoto(mime);
+    } catch (_) {
+      _mostrarErrorFoto(
+        'No se pudo cargar la foto. Si viene de WhatsApp, descarguela primero en Galeria o Archivos y vuelva a intentarlo.',
+      );
     }
-
-    final appDir = await getApplicationDocumentsDirectory();
-    final fotosDir = Directory(
-      p.join(appDir.path, 'proyecto_max', 'productos'),
-    );
-    if (!await fotosDir.exists()) {
-      await fotosDir.create(recursive: true);
-    }
-
-    final nombreArchivo =
-        '${codigoController.text.trim()}-${DateTime.now().millisecondsSinceEpoch}$extension';
-    final destino = File(p.join(fotosDir.path, nombreArchivo));
-
-    await destino.writeAsBytes(bytes);
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      imagenPathController.text = destino.path;
-    });
   }
 
   Future<String> _imagenPersistente() async {
@@ -416,13 +433,58 @@ class _ProductoFormState extends ConsumerState<ProductoForm> {
     }
 
     final extension = p.extension(file.path).toLowerCase();
-    final mime = switch (extension) {
-      '.jpg' || '.jpeg' => 'image/jpeg',
-      '.webp' => 'image/webp',
-      _ => 'image/png',
-    };
+    final mime = _mimeImagen(extension, null);
     final bytes = await file.readAsBytes();
     return 'data:$mime;base64,${base64Encode(bytes)}';
+  }
+
+  String _mimeImagen(String extension, String? reportedMime) {
+    if (reportedMime != null && reportedMime.startsWith('image/')) {
+      return reportedMime;
+    }
+
+    return switch (extension) {
+      '.jpg' || '.jpeg' || '.jfif' => 'image/jpeg',
+      '.webp' => 'image/webp',
+      '.heic' => 'image/heic',
+      '.heif' => 'image/heif',
+      _ => 'image/png',
+    };
+  }
+
+  void _advertirFormatoFoto(String mime) {
+    if (!mounted || !(mime.contains('heic') || mime.contains('heif'))) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        backgroundColor: AppColors.warning,
+        content: Text(
+          'Foto cargada. Si no se visualiza en algun equipo, vuelva a subirla en formato JPG o PNG.',
+          style: TextStyle(
+            color: AppColors.background,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _mostrarErrorFoto(String mensaje) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: AppColors.error,
+        content: Text(
+          mensaje,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
   }
 
   void quitarFoto() {
@@ -905,7 +967,11 @@ class _FotoProductoField extends StatelessWidget {
       return null;
     }
 
-    return base64Decode(value.substring(comma + 1));
+    try {
+      return base64Decode(value.substring(comma + 1));
+    } catch (_) {
+      return null;
+    }
   }
 
   String _fotoNombre(String value) {
