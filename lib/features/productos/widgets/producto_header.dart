@@ -712,6 +712,25 @@ class _ImportarListaDialogState extends ConsumerState<_ImportarListaDialog> {
   }
 
   ProductoImportItem? _parsearLineaRemito(String linea) {
+    final directa = RegExp(
+      r'^\s*(?:\d+(?:[,.]\d+)?\s+)?(?:[A-Z]{2,8}[-\s]*)?(\d{3,8})\s+(.+?)\s+(\$?\s*\d[\d.,]*)\s*$',
+      caseSensitive: false,
+    ).firstMatch(linea);
+    if (directa != null) {
+      final codigo = _limpiarCodigoProveedor(directa.group(1) ?? '');
+      final nombre = (directa.group(2) ?? '').trim();
+      final importe = _parseMoney(directa.group(3) ?? '');
+      if (codigo.isNotEmpty && nombre.isNotEmpty && importe > 0) {
+        return ProductoImportItem(
+          codigoProveedor: codigo,
+          nombre: nombre,
+          costo: importe,
+          marca: _inferirMarca(nombre),
+          categoria: _inferirCategoria(nombre),
+        );
+      }
+    }
+
     final importe = _ultimoImporte(linea);
     if (importe <= 0) {
       return null;
