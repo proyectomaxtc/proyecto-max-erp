@@ -502,7 +502,7 @@ class _ImportarListaDialogState extends ConsumerState<_ImportarListaDialog> {
               ),
               const SizedBox(height: 10),
               const Text(
-                "Pegue los articulos con este formato: codigo; nombre; costo; marca; categoria. Si ya existe el mismo proveedor y codigo, se actualiza el costo y los datos.",
+                "Pegue los articulos con formato codigo; nombre; costo; marca; categoria, o como remito: cantidad codigo descripcion costo. Si ya existe el mismo proveedor y codigo, se actualiza el costo y los datos.",
                 style: TextStyle(color: AppColors.textSecondary),
               ),
               const SizedBox(height: 16),
@@ -520,7 +520,7 @@ class _ImportarListaDialogState extends ConsumerState<_ImportarListaDialog> {
                     icon: const Icon(Icons.image_outlined),
                     label: Text(
                       archivoReferencia == null
-                          ? "Adjuntar foto/remito"
+                          ? "Adjuntar foto/remito referencia"
                           : "Cambiar referencia",
                     ),
                   ),
@@ -625,6 +625,23 @@ class _ImportarListaDialogState extends ConsumerState<_ImportarListaDialog> {
     setState(() {
       archivoReferencia = archivo.name;
     });
+
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        backgroundColor: AppColors.warning,
+        content: Text(
+          'Referencia adjuntada. Para importar productos pegue el texto del remito en el cuadro.',
+          style: TextStyle(
+            color: AppColors.background,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
   }
 
   void _cargarEjemploLcc() {
@@ -651,36 +668,179 @@ class _ImportarListaDialogState extends ConsumerState<_ImportarListaDialog> {
           ? limpia.split(';')
           : limpia.contains('\t')
           ? limpia.split('\t')
-          : limpia.split(',');
+          : const <String>[];
 
       if (partes.length < 3) {
+        final itemFlexible = _parsearLineaRemito(limpia);
+        if (itemFlexible != null) {
+          items.add(itemFlexible);
+          continue;
+        }
+
+        final partesPorComa = limpia.split(',');
+        if (partesPorComa.length >= 3) {
+          final itemPorComa = _parsearPartesEstructuradas(partesPorComa);
+          if (itemPorComa != null) {
+            items.add(itemPorComa);
+          }
+        }
         continue;
       }
 
-      final costo = _parseMoney(partes[2]);
-      if (costo <= 0) {
-        continue;
+      final item = _parsearPartesEstructuradas(partes);
+      if (item != null) {
+        items.add(item);
       }
-
-      items.add(
-        ProductoImportItem(
-          codigoProveedor: partes[0].trim(),
-          nombre: partes[1].trim(),
-          costo: costo,
-          marca: partes.length > 3 ? partes[3].trim() : '',
-          categoria: partes.length > 4 ? partes[4].trim() : 'Otros',
-        ),
-      );
     }
 
     return items;
   }
 
+  ProductoImportItem? _parsearPartesEstructuradas(List<String> partes) {
+    final costo = _parseMoney(partes[2]);
+    if (costo <= 0) {
+      return null;
+    }
+
+    return ProductoImportItem(
+      codigoProveedor: _limpiarCodigoProveedor(partes[0]),
+      nombre: partes[1].trim(),
+      costo: costo,
+      marca: partes.length > 3 ? partes[3].trim() : '',
+      categoria: partes.length > 4 ? partes[4].trim() : 'Otros',
+    );
+  }
+
+  ProductoImportItem? _parsearLineaRemito(String linea) {
+    final importe = _ultimoImporte(linea);
+    if (importe <= 0) {
+      return null;
+    }
+
+    final sinImporte = _lineaSinUltimoImporte(linea);
+    final codigoMatch = RegExp(
+      r'\b(?:[A-Z]{2,8}-)?\d{3,8}\b',
+      caseSensitive: false,
+    ).firstMatch(sinImporte);
+    if (codigoMatch == null) {
+      return null;
+    }
+
+    final codigo = _limpiarCodigoProveedor(codigoMatch.group(0) ?? '');
+    final nombre = sinImporte.substring(codigoMatch.end).trim();
+    if (codigo.isEmpty || nombre.isEmpty) {
+      return null;
+    }
+
+    return ProductoImportItem(
+      codigoProveedor: codigo,
+      nombre: nombre,
+      costo: importe,
+      marca: _inferirMarca(nombre),
+      categoria: _inferirCategoria(nombre),
+    );
+  }
+
+  double _ultimoImporte(String line) {
+    final matches = RegExp(r'\$?\s*\d[\d.,]*').allMatches(line).toList();
+    if (matches.isEmpty) {
+      return 0;
+    }
+
+    return _parseMoney(matches.last.group(0) ?? '');
+  }
+
+  String _lineaSinUltimoImporte(String line) {
+    final matches = RegExp(r'\$?\s*\d[\d.,]*').allMatches(line).toList();
+    if (matches.isEmpty) {
+      return line;
+    }
+
+    final ultimo = matches.last;
+    return '${line.substring(0, ultimo.start)} ${line.substring(ultimo.end)}'
+        .trim();
+  }
+
+  String _limpiarCodigoProveedor(String value) {
+    final codigo = value.trim().toUpperCase().replaceAll(
+      RegExp(r'[^A-Z0-9-]+'),
+      '',
+    );
+    final conPrefijo = RegExp(r'^[A-Z]{2,8}-(\d{3,8})$').firstMatch(codigo);
+    if (conPrefijo != null) {
+      return conPrefijo.group(1) ?? codigo;
+    }
+
+    return codigo;
+  }
+
+  String _inferirMarca(String nombre) {
+    final normalizado = nombre.toUpperCase();
+    const marcas = [
+      'PRIVE',
+      'ANDIF',
+      'BRONZEN',
+      'OLAEN',
+      'TOTAL',
+      'TEACHE',
+      'ACYTRA',
+      'KALLAY',
+      'TH',
+    ];
+
+    for (final marca in marcas) {
+      if (RegExp('\\b$marca\\b').hasMatch(normalizado)) {
+        return marca;
+      }
+    }
+
+    final primeraPalabra = RegExp(r'[A-Z]{3,}').firstMatch(normalizado);
+    return primeraPalabra?.group(0) ?? '';
+  }
+
+  String _inferirCategoria(String nombre) {
+    final normalizado = nombre.toLowerCase();
+    if (normalizado.contains('candado')) {
+      return 'Candados';
+    }
+    if (normalizado.contains('picaporte') ||
+        normalizado.contains('manijon') ||
+        normalizado.contains('manija')) {
+      return 'Picaportes y manijones';
+    }
+    if (normalizado.contains('llave')) {
+      return 'Llaves';
+    }
+    if (normalizado.contains('cerrojo')) {
+      return 'Cerrojos';
+    }
+    if (normalizado.contains('cerradura') || normalizado.contains('pasador')) {
+      return 'Cerraduras';
+    }
+
+    return 'Otros';
+  }
+
   double _parseMoney(String value) {
-    final raw = value.replaceAll('\$', '').replaceAll(' ', '');
-    final normalized = raw.contains(',')
-        ? raw.replaceAll('.', '').replaceAll(',', '.')
-        : raw;
+    final raw = value.replaceAll('\$', '').replaceAll(' ', '').trim();
+    if (raw.isEmpty) {
+      return 0;
+    }
+
+    final lastComma = raw.lastIndexOf(',');
+    final lastDot = raw.lastIndexOf('.');
+    var normalized = raw;
+    if (lastComma >= 0 && lastDot >= 0) {
+      final decimal = lastComma > lastDot ? ',' : '.';
+      final thousands = decimal == ',' ? '.' : ',';
+      normalized = raw.replaceAll(thousands, '');
+      if (decimal == ',') {
+        normalized = normalized.replaceAll(',', '.');
+      }
+    } else if (lastComma >= 0) {
+      normalized = raw.replaceAll('.', '').replaceAll(',', '.');
+    }
+
     return double.tryParse(normalized) ?? 0;
   }
 
