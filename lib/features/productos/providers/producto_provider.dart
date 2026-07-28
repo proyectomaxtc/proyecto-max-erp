@@ -109,7 +109,7 @@ class ProductoNotifier extends StateNotifier<ProductoState> {
     stockPorSucursal[destino] = stockDestino + cantidad;
 
     final actualizado = producto.copyWith(
-      stock: stockPorSucursal.values.fold(0, (total, stock) => total + stock),
+      stock: stockPorSucursal.values.fold(0.0, (total, stock) => total + stock),
       stockPorSucursal: stockPorSucursal,
       actualizado: DateTime.now(),
     );
