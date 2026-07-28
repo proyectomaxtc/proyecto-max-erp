@@ -281,10 +281,7 @@ class _ProductoMobileCard extends StatelessWidget {
                   runSpacing: 6,
                   children: [
                     _InfoPill("Stock", stock.toStringAsFixed(0)),
-                    _InfoPill(
-                      "Precio",
-                      CurrencyFormatter.format(producto.precio),
-                    ),
+                    _PricePill(CurrencyFormatter.format(producto.precio)),
                     _StatusPill(estado),
                   ],
                 ),
@@ -345,7 +342,7 @@ class _ProductoListCard extends StatelessWidget {
       _InfoPill("Categoria", producto.categoria),
       if (producto.marca.trim().isNotEmpty) _InfoPill("Marca", producto.marca),
       _InfoPill("Stock", stock.toStringAsFixed(0)),
-      _InfoPill("Precio", CurrencyFormatter.format(producto.precio)),
+      _PricePill(CurrencyFormatter.format(producto.precio)),
     ];
 
     return Container(
@@ -450,6 +447,46 @@ class _InfoPill extends StatelessWidget {
           fontSize: 11,
           fontWeight: FontWeight.w600,
         ),
+      ),
+    );
+  }
+}
+
+class _PricePill extends StatelessWidget {
+  final String value;
+
+  const _PricePill(this.value);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.primary,
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: AppColors.secondary),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: .18),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.sell_outlined, size: 15, color: Colors.black),
+          const SizedBox(width: 6),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.black,
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
       ),
     );
   }
