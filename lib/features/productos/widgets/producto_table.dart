@@ -8,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../shared/widgets/dialogs/app_dialog.dart';
-import '../../../shared/widgets/tables/app_data_table.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/producto_model.dart';
 import '../providers/producto_provider.dart';
@@ -112,74 +111,21 @@ class ProductoTable extends ConsumerWidget {
       );
     }
 
-    return AppDataTable(
-      columns: [
-        const DataColumn(label: Text("Foto")),
-        const DataColumn(label: Text("Codigo")),
-        const DataColumn(label: Text("Producto")),
-        const DataColumn(label: Text("Categoria")),
-        const DataColumn(label: Text("Stock")),
-        const DataColumn(label: Text("Precio")),
-        const DataColumn(label: Text("Estado")),
-        if (esPropietario) const DataColumn(label: Text("Acciones")),
-      ],
-      rows: productos.map((producto) {
-        final estado = _estadoProducto(producto, sucursal);
-        final stock = producto.stockEnSucursal(sucursal);
-
-        return DataRow(
-          cells: [
-            DataCell(_ProductoThumb(path: producto.imagenPath)),
-            DataCell(_CellText(producto.codigo, width: 136)),
-            DataCell(_CellText(producto.nombre, width: 170, bold: true)),
-            DataCell(_CellText(producto.categoria, width: 210)),
-            DataCell(_CellText(stock.toStringAsFixed(0), width: 48)),
-            DataCell(
-              _CellText(CurrencyFormatter.format(producto.precio), width: 90),
-            ),
-            DataCell(
-              Chip(
-                backgroundColor: estado.color,
-                label: Text(
-                  estado.label,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-            if (esPropietario) _accionesProducto(context, ref, producto),
-          ],
+    return ListView.separated(
+      padding: const EdgeInsets.only(bottom: 18),
+      itemCount: productos.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        final producto = productos[index];
+        return _ProductoListCard(
+          producto: producto,
+          stock: producto.stockEnSucursal(sucursal),
+          estado: _estadoProducto(producto, sucursal),
+          esPropietario: esPropietario,
+          onEdit: () => _abrirEditor(context, producto),
+          onDelete: () => _confirmarEliminar(context, ref, producto),
         );
-      }).toList(),
-    );
-  }
-
-  DataCell _accionesProducto(
-    BuildContext context,
-    WidgetRef ref,
-    ProductoModel producto,
-  ) {
-    return DataCell(
-      SizedBox(
-        width: 92,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              tooltip: "Editar",
-              onPressed: () => _abrirEditor(context, producto),
-              icon: const Icon(Icons.edit_outlined),
-            ),
-            IconButton(
-              tooltip: "Eliminar",
-              onPressed: () => _confirmarEliminar(context, ref, producto),
-              icon: const Icon(Icons.delete_outline),
-            ),
-          ],
-        ),
-      ),
+      },
     );
   }
 
@@ -310,7 +256,7 @@ class _ProductoMobileCard extends StatelessWidget {
               children: [
                 Text(
                   producto.nombre,
-                  maxLines: 1,
+                  maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: AppColors.textPrimary,
@@ -374,6 +320,114 @@ class _ProductoMobileCard extends StatelessWidget {
   }
 }
 
+class _ProductoListCard extends StatelessWidget {
+  final ProductoModel producto;
+  final double stock;
+  final _ProductoStatus estado;
+  final bool esPropietario;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _ProductoListCard({
+    required this.producto,
+    required this.stock,
+    required this.estado,
+    required this.esPropietario,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final medium = MediaQuery.sizeOf(context).width < 1040;
+    final details = [
+      _InfoPill("Codigo", producto.codigo),
+      _InfoPill("Categoria", producto.categoria),
+      if (producto.marca.trim().isNotEmpty) _InfoPill("Marca", producto.marca),
+      _InfoPill("Stock", stock.toStringAsFixed(0)),
+      _InfoPill("Precio", CurrencyFormatter.format(producto.precio)),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _ProductoThumb(path: producto.imagenPath, size: 58),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  producto.nombre,
+                  maxLines: medium ? 3 : 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 15,
+                    height: 1.25,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (producto.descripcion.trim().isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    producto.descripcion,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textDisabled,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                Wrap(spacing: 7, runSpacing: 7, children: details),
+              ],
+            ),
+          ),
+          const SizedBox(width: 14),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              _StatusPill(estado),
+              if (esPropietario) ...[
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton.filledTonal(
+                      tooltip: "Editar",
+                      onPressed: onEdit,
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      tooltip: "Eliminar",
+                      onPressed: onDelete,
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        size: 18,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _InfoPill extends StatelessWidget {
   final String label;
   final String value;
@@ -428,8 +482,9 @@ class _StatusPill extends StatelessWidget {
 
 class _ProductoThumb extends StatelessWidget {
   final String path;
+  final double size;
 
-  const _ProductoThumb({required this.path});
+  const _ProductoThumb({required this.path, this.size = 46});
 
   @override
   Widget build(BuildContext context) {
@@ -441,8 +496,8 @@ class _ProductoThumb extends StatelessWidget {
                 (!kIsWeb && File(path).existsSync()));
 
     final image = Container(
-      width: 46,
-      height: 46,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(10),
@@ -531,27 +586,6 @@ class _ProductoThumb extends StatelessWidget {
     }
 
     return base64Decode(value.substring(comma + 1));
-  }
-}
-
-class _CellText extends StatelessWidget {
-  final String text;
-  final double width;
-  final bool bold;
-
-  const _CellText(this.text, {required this.width, this.bold = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      child: Text(
-        text,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(fontWeight: bold ? FontWeight.w700 : FontWeight.w500),
-      ),
-    );
   }
 }
 
