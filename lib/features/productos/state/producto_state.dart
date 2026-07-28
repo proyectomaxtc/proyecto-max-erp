@@ -20,7 +20,7 @@ class ProductoState {
   List<ProductoModel> get productosFiltrados {
     final texto = busqueda.trim().toLowerCase();
 
-    return productos.where((producto) {
+    final filtrados = productos.where((producto) {
       final coincideBusqueda =
           texto.isEmpty ||
           producto.codigo.toLowerCase().contains(texto) ||
@@ -45,6 +45,17 @@ class ProductoState {
           producto.stockEnSucursal(sucursalSeleccionada) <= 0,
       };
     }).toList();
+
+    filtrados.sort((a, b) {
+      final nombre = a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase());
+      if (nombre != 0) {
+        return nombre;
+      }
+
+      return a.codigo.toLowerCase().compareTo(b.codigo.toLowerCase());
+    });
+
+    return filtrados;
   }
 
   ProductoState copyWith({
