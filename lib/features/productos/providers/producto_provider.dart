@@ -71,6 +71,54 @@ class ProductoNotifier extends StateNotifier<ProductoState> {
     await cargarProductos();
   }
 
+  Future<ProductoModel> transferirStock({
+    required String productoId,
+    required String origen,
+    required String destino,
+    required double cantidad,
+  }) async {
+    if (origen == destino) {
+      throw Exception('Seleccione sucursales diferentes para transferir.');
+    }
+
+    if (cantidad <= 0) {
+      throw Exception('Ingrese una cantidad mayor a 0.');
+    }
+
+    final producto = state.productos.firstWhere(
+      (item) => item.id == productoId,
+      orElse: ProductoModel.empty,
+    );
+
+    if (producto.id.isEmpty) {
+      throw Exception('No se encontro el producto seleccionado.');
+    }
+
+    final stockPorSucursal = _stockNormalizado(producto);
+    final stockOrigen = stockPorSucursal[origen] ?? 0;
+    final stockDestino = stockPorSucursal[destino] ?? 0;
+
+    if (stockOrigen < cantidad) {
+      throw Exception(
+        'Stock insuficiente en $origen. Disponible: ${stockOrigen.toStringAsFixed(0)}.',
+      );
+    }
+
+    stockPorSucursal[origen] = stockOrigen - cantidad;
+    stockPorSucursal[destino] = stockDestino + cantidad;
+
+    final actualizado = producto.copyWith(
+      stock: stockPorSucursal.values.fold(0, (total, stock) => total + stock),
+      stockPorSucursal: stockPorSucursal,
+      actualizado: DateTime.now(),
+    );
+
+    await repository.actualizarProducto(actualizado);
+    await cargarProductos();
+
+    return actualizado;
+  }
+
   Future<int> actualizarPreciosMayoristas(Map<String, double> precios) async {
     if (precios.isEmpty) {
       return 0;
@@ -179,5 +227,22 @@ class ProductoNotifier extends StateNotifier<ProductoState> {
         texto.contains('duplicado');
 
     return esLlave && texto.contains('doble paleta');
+  }
+
+  Map<String, double> _stockNormalizado(ProductoModel producto) {
+    final stockPorSucursal = Map<String, double>.from(
+      producto.stockPorSucursal,
+    );
+
+    if (stockPorSucursal.isEmpty && producto.stock > 0) {
+      stockPorSucursal[Branches.casaCentral] = producto.stock;
+      stockPorSucursal[Branches.alberdi] = 0;
+    }
+
+    for (final sucursal in Branches.values) {
+      stockPorSucursal.putIfAbsent(sucursal, () => 0);
+    }
+
+    return stockPorSucursal;
   }
 }

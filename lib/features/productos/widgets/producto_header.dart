@@ -15,6 +15,7 @@ import '../providers/producto_provider.dart';
 import 'producto_form.dart';
 import 'producto_search.dart';
 import 'producto_table.dart';
+import 'producto_transfer_form.dart';
 
 class ProductoHeader extends ConsumerWidget {
   const ProductoHeader({super.key});
@@ -119,6 +120,11 @@ class ProductoHeader extends ConsumerWidget {
                         ),
                         if (esPropietario) ...[
                           OutlinedButton.icon(
+                            onPressed: () => _abrirTransferenciaStock(context),
+                            icon: const Icon(Icons.swap_horiz_rounded),
+                            label: const Text("Transferir stock"),
+                          ),
+                          OutlinedButton.icon(
                             onPressed: () => _abrirActualizadorLlaves(context),
                             icon: const Icon(Icons.key_outlined),
                             label: const Text("Actualizar llaves"),
@@ -159,33 +165,42 @@ class ProductoHeader extends ConsumerWidget {
                     ),
                     if (esPropietario) ...[
                       const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          FilledButton.icon(
-                            icon: const Icon(Icons.add),
-                            label: const Text("Nuevo Producto"),
-                            onPressed: () => _abrirProducto(context),
-                          ),
-                          const SizedBox(width: 10),
-                          OutlinedButton.icon(
-                            icon: const Icon(Icons.open_in_full_rounded),
-                            label: const Text("Lista completa"),
-                            onPressed: () => _abrirListaCompleta(context),
-                          ),
-                          const SizedBox(width: 10),
-                          OutlinedButton.icon(
-                            icon: const Icon(Icons.key_outlined),
-                            label: const Text("Actualizar llaves"),
-                            onPressed: () => _abrirActualizadorLlaves(context),
-                          ),
-                          const SizedBox(width: 10),
-                          OutlinedButton.icon(
-                            icon: const Icon(Icons.upload_file_outlined),
-                            label: const Text("Importar lista"),
-                            onPressed: () => _abrirImportadorLista(context),
-                          ),
-                        ],
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          alignment: WrapAlignment.end,
+                          children: [
+                            FilledButton.icon(
+                              icon: const Icon(Icons.add),
+                              label: const Text("Nuevo Producto"),
+                              onPressed: () => _abrirProducto(context),
+                            ),
+                            OutlinedButton.icon(
+                              icon: const Icon(Icons.open_in_full_rounded),
+                              label: const Text("Lista completa"),
+                              onPressed: () => _abrirListaCompleta(context),
+                            ),
+                            OutlinedButton.icon(
+                              icon: const Icon(Icons.swap_horiz_rounded),
+                              label: const Text("Transferir stock"),
+                              onPressed: () =>
+                                  _abrirTransferenciaStock(context),
+                            ),
+                            OutlinedButton.icon(
+                              icon: const Icon(Icons.key_outlined),
+                              label: const Text("Actualizar llaves"),
+                              onPressed: () =>
+                                  _abrirActualizadorLlaves(context),
+                            ),
+                            OutlinedButton.icon(
+                              icon: const Icon(Icons.upload_file_outlined),
+                              label: const Text("Importar lista"),
+                              onPressed: () => _abrirImportadorLista(context),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ],
@@ -215,6 +230,19 @@ class ProductoHeader extends ConsumerWidget {
       context: context,
       barrierDismissible: false,
       builder: (_) => const _ActualizarLlavesDialog(),
+    );
+  }
+
+  void _abrirTransferenciaStock(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) {
+        return const AppDialog(
+          title: "Transferir stock",
+          child: ProductoTransferForm(),
+        );
+      },
     );
   }
 
