@@ -342,7 +342,6 @@ class _ProductoListCard extends StatelessWidget {
       _InfoPill("Categoria", producto.categoria),
       if (producto.marca.trim().isNotEmpty) _InfoPill("Marca", producto.marca),
       _InfoPill("Stock", stock.toStringAsFixed(0)),
-      _PricePill(CurrencyFormatter.format(producto.precio)),
     ];
 
     return Container(
@@ -393,6 +392,8 @@ class _ProductoListCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
+              _PricePanel(CurrencyFormatter.format(producto.precio)),
+              const SizedBox(height: 8),
               _StatusPill(estado),
               if (esPropietario) ...[
                 const SizedBox(height: 8),
@@ -447,6 +448,54 @@ class _InfoPill extends StatelessWidget {
           fontSize: 11,
           fontWeight: FontWeight.w600,
         ),
+      ),
+    );
+  }
+}
+
+class _PricePanel extends StatelessWidget {
+  final String value;
+
+  const _PricePanel(this.value);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 142),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.primary,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.secondary),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: .2),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          const Text(
+            "Precio venta",
+            style: TextStyle(
+              color: Colors.black87,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.black,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
       ),
     );
   }
