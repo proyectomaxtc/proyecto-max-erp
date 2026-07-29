@@ -59,14 +59,17 @@ class VentaNotifier extends StateNotifier<VentaState> {
       }
     }
 
-    venta ??= (await repository.obtenerVentas())
-        .where((item) => item.id == id)
-        .firstOrNull;
-
-    await repository.eliminarVenta(id);
+    final ventasAntes = state.ventas;
     state = state.copyWith(
       ventas: state.ventas.where((item) => item.id != id).toList(),
     );
+
+    try {
+      await repository.eliminarVenta(id);
+    } catch (_) {
+      state = state.copyWith(ventas: ventasAntes);
+      rethrow;
+    }
 
     if (venta != null &&
         venta.estado == 'Completada' &&
@@ -74,8 +77,6 @@ class VentaNotifier extends StateNotifier<VentaState> {
       await _devolverStock(venta);
       await _marcarStockDevueltoPorEliminacion(venta.id);
     }
-
-    await cargarVentas();
   }
 
   bool _stockYaDevueltoPorEliminacion(String ventaId) {

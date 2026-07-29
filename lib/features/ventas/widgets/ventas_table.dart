@@ -5,8 +5,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../shared/widgets/dialogs/app_dialog.dart';
 import '../../../shared/widgets/tables/app_data_table.dart';
-import '../../caja/widgets/owner_authorization_dialog.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../caja/widgets/owner_authorization_dialog.dart';
 import '../models/venta_model.dart';
 import '../providers/venta_provider.dart';
 import 'venta_form.dart';
@@ -181,15 +181,15 @@ class _VentasTableState extends ConsumerState<VentasTable> {
       return;
     }
 
-    final autorizado =
-        esPropietario ||
-        await OwnerAuthorizationDialog.request(
-          context,
-          reason:
-              "Modificar o eliminar ventas registradas requiere autorizacion del propietario.",
-        );
-
-    if (!autorizado || !context.mounted) {
+    if (!esPropietario) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.warning,
+          content: Text(
+            'Solo el propietario puede eliminar ventas. Avise al propietario para revisar esta operacion.',
+          ),
+        ),
+      );
       return;
     }
 
