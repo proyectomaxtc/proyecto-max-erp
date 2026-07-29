@@ -72,10 +72,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final authId = signIn.authId;
 
     if (authId == null) {
+      final localOk = await _loginEmailLocal(
+        emailNormalizado: nombreNormalizado,
+        codigoNormalizado: codigoNormalizado,
+      );
+      if (localOk) {
+        return true;
+      }
+
+      final error =
+          signIn.error ?? 'Email o contrasena de Supabase incorrectos.';
       state = state.copyWith(
         error:
-            signIn.error ??
-            'Email o contrasena de Supabase incorrectos. Use la contrasena creada en Supabase.',
+            '$error Tambien puede ingresar con el mismo email y el codigo local si ese usuario ya esta cargado en la app.',
         cargandoSesion: false,
       );
       return false;
@@ -103,15 +112,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return false;
     }
 
-    await service.guardarUsuario(cloudUser);
+    final usuarioFinal = _conservarDatosLocales(cloudUser, usuarios);
+
+    await service.guardarUsuario(usuarioFinal);
     final usuariosActualizados = await service.obtenerUsuarios();
     state = state.copyWith(
-      usuario: cloudUser,
+      usuario: usuarioFinal,
       usuarios: usuariosActualizados,
       limpiarError: true,
       cargandoSesion: false,
     );
-    await _guardarSesion(cloudUser);
+    await _guardarSesion(usuarioFinal);
     return true;
   }
 
@@ -141,6 +152,33 @@ class AuthNotifier extends StateNotifier<AuthState> {
       error: 'Nombre o codigo incorrecto',
       cargandoSesion: false,
     );
+    return false;
+  }
+
+  Future<bool> _loginEmailLocal({
+    required String emailNormalizado,
+    required String codigoNormalizado,
+  }) async {
+    final usuarios = await service.obtenerUsuarios();
+
+    for (final usuario in usuarios) {
+      final emailUsuario = usuario.email.trim().toLowerCase();
+      final codigoUsuario = usuario.codigo.trim();
+      if (usuario.activo &&
+          emailUsuario == emailNormalizado &&
+          codigoUsuario.isNotEmpty &&
+          codigoUsuario == codigoNormalizado) {
+        state = state.copyWith(
+          usuario: usuario,
+          usuarios: usuarios,
+          limpiarError: true,
+          cargandoSesion: false,
+        );
+        await _guardarSesion(usuario);
+        return true;
+      }
+    }
+
     return false;
   }
 
@@ -261,8 +299,34 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return null;
     }
 
-    await service.guardarUsuario(cloudUser);
-    await _guardarSesion(cloudUser);
+    final usuarioFinal = _conservarDatosLocales(cloudUser, usuarios);
+
+    await service.guardarUsuario(usuarioFinal);
+    await _guardarSesion(usuarioFinal);
+    return usuarioFinal;
+  }
+
+  AppUserModel _conservarDatosLocales(
+    AppUserModel cloudUser,
+    List<AppUserModel> usuarios,
+  ) {
+    for (final usuario in usuarios) {
+      final mismoId = usuario.id == cloudUser.id;
+      final mismoAuth =
+          usuario.authId.isNotEmpty && usuario.authId == cloudUser.authId;
+      final mismoEmail =
+          usuario.email.trim().toLowerCase().isNotEmpty &&
+          usuario.email.trim().toLowerCase() ==
+              cloudUser.email.trim().toLowerCase();
+
+      if (mismoId || mismoAuth || mismoEmail) {
+        return cloudUser.copyWith(
+          codigo: cloudUser.codigo.isEmpty ? usuario.codigo : cloudUser.codigo,
+          creado: usuario.creado,
+        );
+      }
+    }
+
     return cloudUser;
   }
 

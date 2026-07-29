@@ -17,7 +17,20 @@ class UserService {
       box: _box,
     );
 
-    return values.map((value) => AppUserModel.fromMap(value)).toList()
+    final usuarios = values.map((value) => AppUserModel.fromMap(value)).toList();
+    final corregidos = <AppUserModel>[];
+
+    for (final usuario in usuarios) {
+      if (usuario.activo && usuario.esPropietario && usuario.codigo.isEmpty) {
+        final actualizado = usuario.copyWith(codigo: '1234');
+        await guardarUsuario(actualizado);
+        corregidos.add(actualizado);
+      } else {
+        corregidos.add(usuario);
+      }
+    }
+
+    return corregidos
       ..sort((a, b) => a.nombre.compareTo(b.nombre));
   }
 
@@ -49,4 +62,5 @@ class UserService {
 
     await guardarUsuario(owner);
   }
+
 }
