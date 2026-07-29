@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -21,9 +23,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final codigoController = TextEditingController(text: '1234');
   bool mostrarCodigo = false;
   bool recordarUsuario = false;
+  List<String> usuariosRecordados = const [];
 
   static const _recordarKey = 'login_recordar_usuario';
   static const _usuarioKey = 'login_usuario';
+  static const _usuariosRecordadosKey = 'login_usuarios_recordados';
 
   @override
   void initState() {
@@ -57,24 +61,92 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Future<void> _cargarUsuarioRecordado() async {
     final prefs = await SharedPreferences.getInstance();
     final debeRecordar = prefs.getBool(_recordarKey) ?? false;
-    if (!mounted || !debeRecordar) return;
+    final recordados = _leerUsuariosRecordados(prefs);
+    final usuarioLegacy = prefs.getString(_usuarioKey)?.trim() ?? '';
+    if (usuarioLegacy.isNotEmpty && !recordados.contains(usuarioLegacy)) {
+      recordados.add(usuarioLegacy);
+    }
+
+    if (!mounted) return;
 
     setState(() {
-      recordarUsuario = true;
-      nombreController.text = prefs.getString(_usuarioKey) ?? '';
+      usuariosRecordados = recordados;
+      recordarUsuario = debeRecordar;
+      if (debeRecordar && recordados.isNotEmpty) {
+        nombreController.text = usuarioLegacy.isNotEmpty
+            ? usuarioLegacy
+            : recordados.first;
+      }
     });
   }
 
   Future<void> _guardarUsuarioRecordado() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_recordarKey, recordarUsuario);
+    final usuario = nombreController.text.trim();
+    final recordados = _leerUsuariosRecordados(prefs);
 
-    if (recordarUsuario) {
-      await prefs.setString(_usuarioKey, nombreController.text.trim());
+    if (recordarUsuario && usuario.isNotEmpty) {
+      recordados.removeWhere(
+        (item) => item.toLowerCase() == usuario.toLowerCase(),
+      );
+      recordados.insert(0, usuario);
+      if (recordados.length > 10) {
+        recordados.removeRange(10, recordados.length);
+      }
+
+      await prefs.setString(_usuarioKey, usuario);
+      await _guardarListaUsuariosRecordados(prefs, recordados);
+      if (mounted) {
+        setState(() {
+          usuariosRecordados = List.unmodifiable(recordados);
+        });
+      }
       return;
     }
 
+    if (usuario.isNotEmpty) {
+      recordados.removeWhere(
+        (item) => item.toLowerCase() == usuario.toLowerCase(),
+      );
+      await _guardarListaUsuariosRecordados(prefs, recordados);
+    }
+
     await prefs.remove(_usuarioKey);
+    if (mounted) {
+      setState(() {
+        usuariosRecordados = List.unmodifiable(recordados);
+      });
+    }
+  }
+
+  List<String> _leerUsuariosRecordados(SharedPreferences prefs) {
+    final raw = prefs.getString(_usuariosRecordadosKey);
+    if (raw == null || raw.trim().isEmpty) {
+      return [];
+    }
+
+    try {
+      final values = jsonDecode(raw);
+      if (values is! List) {
+        return [];
+      }
+
+      return values
+          .map((value) => value.toString().trim())
+          .where((value) => value.isNotEmpty)
+          .toSet()
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> _guardarListaUsuariosRecordados(
+    SharedPreferences prefs,
+    List<String> usuarios,
+  ) {
+    return prefs.setString(_usuariosRecordadosKey, jsonEncode(usuarios));
   }
 
   Future<void> _mostrarCambioPassword() async {
@@ -220,6 +292,40 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               icon: Icons.person_outline,
             ),
           ),
+          if (usuariosRecordados.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            DropdownButtonFormField<String>(
+              value: usuariosRecordados.contains(nombreController.text.trim())
+                  ? nombreController.text.trim()
+                  : null,
+              items: usuariosRecordados
+                  .map(
+                    (usuario) => DropdownMenuItem<String>(
+                      value: usuario,
+                      child: Text(
+                        usuario,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                if (value == null || value.isEmpty) {
+                  return;
+                }
+
+                setState(() {
+                  nombreController.text = value;
+                  codigoController.clear();
+                  recordarUsuario = true;
+                });
+              },
+              decoration: decoration(
+                label: "Usuarios recordados",
+                icon: Icons.account_circle_outlined,
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           TextField(
             controller: codigoController,
