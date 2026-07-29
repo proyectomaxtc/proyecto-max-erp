@@ -6,6 +6,7 @@ import '../../../app/routes.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/company.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../features/caja/providers/caja_provider.dart';
 import 'menu_items.dart';
 
 class SideMenu extends ConsumerWidget {
@@ -64,10 +65,9 @@ class SideMenu extends ConsumerWidget {
                         ],
                       );
                     },
-                  ).then((salir) {
+                  ).then((salir) async {
                     if (salir == true && context.mounted) {
-                      ref.read(authProvider.notifier).logout();
-                      context.go(AppRoutes.login);
+                      await _cerrarSesion(context, ref);
                     }
                   });
                 },
@@ -92,6 +92,51 @@ class SideMenu extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _cerrarSesion(BuildContext context, WidgetRef ref) async {
+    final usuario = ref.read(authProvider).usuario;
+
+    if (usuario != null && !usuario.esPropietario) {
+      await ref.read(cajaProvider.notifier).cargarMovimientos();
+      if (!context.mounted) {
+        return;
+      }
+
+      final cajaAbierta = ref
+          .read(cajaProvider)
+          .cajaAbiertaParaSucursal(usuario.sucursal);
+
+      if (cajaAbierta) {
+        await showDialog<void>(
+          context: context,
+          builder: (_) {
+            return AlertDialog(
+              title: const Text("Controlar y cerrar caja"),
+              content: const Text(
+                "Antes de cerrar sesion debe controlar y cerrar la caja del turno.",
+              ),
+              actions: [
+                FilledButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Ir a Caja"),
+                ),
+              ],
+            );
+          },
+        );
+
+        if (context.mounted) {
+          context.go(AppRoutes.caja);
+        }
+        return;
+      }
+    }
+
+    ref.read(authProvider.notifier).logout();
+    if (context.mounted) {
+      context.go(AppRoutes.login);
+    }
   }
 }
 

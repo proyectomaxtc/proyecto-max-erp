@@ -126,13 +126,12 @@ class _TopBarState extends ConsumerState<TopBar> {
                 backgroundColor: AppColors.primary,
                 child: Icon(Icons.person, color: Colors.black, size: 18),
               ),
-              onSelected: (value) {
+              onSelected: (value) async {
                 if (value == 'config') {
                   context.go(AppRoutes.configuracion);
                 }
                 if (value == 'logout') {
-                  ref.read(authProvider.notifier).logout();
-                  context.go(AppRoutes.login);
+                  await _cerrarSesion();
                 }
               },
               itemBuilder: (_) => [
@@ -335,6 +334,51 @@ class _TopBarState extends ConsumerState<TopBar> {
         );
       },
     );
+  }
+
+  Future<void> _cerrarSesion() async {
+    final usuario = ref.read(authProvider).usuario;
+
+    if (usuario != null && !usuario.esPropietario) {
+      await ref.read(cajaProvider.notifier).cargarMovimientos();
+      if (!mounted) {
+        return;
+      }
+
+      final cajaAbierta = ref
+          .read(cajaProvider)
+          .cajaAbiertaParaSucursal(usuario.sucursal);
+
+      if (cajaAbierta) {
+        await showDialog<void>(
+          context: context,
+          builder: (_) {
+            return AlertDialog(
+              title: const Text("Controlar y cerrar caja"),
+              content: const Text(
+                "Antes de cerrar sesion debe controlar y cerrar la caja del turno.",
+              ),
+              actions: [
+                FilledButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Ir a Caja"),
+                ),
+              ],
+            );
+          },
+        );
+
+        if (mounted) {
+          context.go(AppRoutes.caja);
+        }
+        return;
+      }
+    }
+
+    ref.read(authProvider.notifier).logout();
+    if (mounted) {
+      context.go(AppRoutes.login);
+    }
   }
 
   void _showSearchResults(String value) {
