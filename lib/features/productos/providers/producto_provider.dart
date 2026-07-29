@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/branches.dart';
@@ -38,9 +40,8 @@ class ProductoNotifier extends StateNotifier<ProductoState> {
   }
 
   Future<void> agregarProducto(ProductoModel producto) async {
-    await repository.guardarProducto(producto);
-
-    await cargarProductos();
+    _aplicarProductoEnPantalla(producto);
+    unawaited(_guardarProductoEnSegundoPlano(producto));
   }
 
   Future<int> importarCatalogoInicialLcc() async {
@@ -67,9 +68,8 @@ class ProductoNotifier extends StateNotifier<ProductoState> {
   }
 
   Future<void> actualizarProducto(ProductoModel producto) async {
-    await repository.actualizarProducto(producto);
-
-    await cargarProductos();
+    _aplicarProductoEnPantalla(producto);
+    unawaited(_guardarProductoEnSegundoPlano(producto));
   }
 
   Future<ProductoModel> transferirStock({
@@ -118,8 +118,8 @@ class ProductoNotifier extends StateNotifier<ProductoState> {
       actualizado: DateTime.now(),
     );
 
-    await repository.actualizarProducto(actualizado);
-    await cargarProductos();
+    _aplicarProductoEnPantalla(actualizado);
+    unawaited(_guardarProductoEnSegundoPlano(actualizado));
 
     return actualizado;
   }
@@ -168,7 +168,11 @@ class ProductoNotifier extends StateNotifier<ProductoState> {
   Future<void> eliminarProducto(String id) async {
     await repository.eliminarProducto(id);
 
-    await cargarProductos();
+    state = state.copyWith(
+      productos: state.productos
+          .where((producto) => producto.id != id)
+          .toList(growable: false),
+    );
   }
 
   void buscar(String texto) {
@@ -249,5 +253,27 @@ class ProductoNotifier extends StateNotifier<ProductoState> {
     }
 
     return stockPorSucursal;
+  }
+
+  void _aplicarProductoEnPantalla(ProductoModel producto) {
+    final productos = [...state.productos];
+    final index = productos.indexWhere((item) => item.id == producto.id);
+
+    if (index >= 0) {
+      productos[index] = producto;
+    } else {
+      productos.add(producto);
+    }
+
+    state = state.copyWith(productos: productos, loading: false);
+  }
+
+  Future<void> _guardarProductoEnSegundoPlano(ProductoModel producto) async {
+    try {
+      await repository.actualizarProducto(producto);
+    } catch (_) {
+      // El producto ya queda guardado localmente. La proxima sincronizacion
+      // vuelve a intentar subirlo si Supabase estaba lento o sin conexion.
+    }
   }
 }
