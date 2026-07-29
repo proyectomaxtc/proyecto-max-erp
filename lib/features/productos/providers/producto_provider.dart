@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/branches.dart';
@@ -40,8 +38,8 @@ class ProductoNotifier extends StateNotifier<ProductoState> {
   }
 
   Future<void> agregarProducto(ProductoModel producto) async {
+    await repository.guardarProducto(producto);
     _aplicarProductoEnPantalla(producto);
-    unawaited(_guardarProductoEnSegundoPlano(producto));
   }
 
   Future<int> importarCatalogoInicialLcc() async {
@@ -68,8 +66,8 @@ class ProductoNotifier extends StateNotifier<ProductoState> {
   }
 
   Future<void> actualizarProducto(ProductoModel producto) async {
+    await repository.actualizarProducto(producto);
     _aplicarProductoEnPantalla(producto);
-    unawaited(_guardarProductoEnSegundoPlano(producto));
   }
 
   Future<ProductoModel> transferirStock({
@@ -118,8 +116,8 @@ class ProductoNotifier extends StateNotifier<ProductoState> {
       actualizado: DateTime.now(),
     );
 
+    await repository.actualizarProducto(actualizado);
     _aplicarProductoEnPantalla(actualizado);
-    unawaited(_guardarProductoEnSegundoPlano(actualizado));
 
     return actualizado;
   }
@@ -266,14 +264,5 @@ class ProductoNotifier extends StateNotifier<ProductoState> {
     }
 
     state = state.copyWith(productos: productos, loading: false);
-  }
-
-  Future<void> _guardarProductoEnSegundoPlano(ProductoModel producto) async {
-    try {
-      await repository.actualizarProducto(producto);
-    } catch (_) {
-      // El producto ya queda guardado localmente. La proxima sincronizacion
-      // vuelve a intentar subirlo si Supabase estaba lento o sin conexion.
-    }
   }
 }

@@ -58,8 +58,6 @@ class ProductoService {
 
   Future<void> guardarProducto(ProductoModel producto) async {
     final data = producto.toMap();
-    await _box.put(producto.id, data);
-
     final sincronizado = await CloudJsonStore.save(
       table: StorageBoxes.productos,
       id: producto.id,
@@ -71,6 +69,8 @@ class ProductoService {
         'Supabase no permitio guardar el producto. Revise permisos de propietario o conexion.',
       );
     }
+
+    await _box.put(producto.id, data);
   }
 
   Future<void> actualizarProducto(ProductoModel producto) async {
