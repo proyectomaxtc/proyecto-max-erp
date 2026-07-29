@@ -96,6 +96,10 @@ class _InventarioPageState extends ConsumerState<InventarioPage> {
             totalMostrado: productosFiltrados.length,
             onSearchChanged: (_) => setState(() {}),
             onFiltroChanged: (value) => setState(() => filtro = value),
+            onExpand: () => _abrirListaCompleta(
+              productos: productos,
+              sucursal: sucursal,
+            ),
           ),
           const SizedBox(height: 14),
           Expanded(
@@ -156,6 +160,21 @@ class _InventarioPageState extends ConsumerState<InventarioPage> {
 
   String _normalizar(String value) {
     return value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  void _abrirListaCompleta({
+    required List<ProductoModel> productos,
+    required String sucursal,
+  }) {
+    showDialog(
+      context: context,
+      builder: (_) => _InventarioCompletoDialog(
+        productos: productos,
+        sucursal: sucursal,
+        filtroInicial: filtro,
+        busquedaInicial: busquedaController.text,
+      ),
+    );
   }
 }
 
@@ -384,6 +403,7 @@ class _InventarioToolbar extends StatelessWidget {
   final int totalMostrado;
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<_InventarioFiltro> onFiltroChanged;
+  final VoidCallback onExpand;
 
   const _InventarioToolbar({
     required this.controller,
@@ -391,6 +411,7 @@ class _InventarioToolbar extends StatelessWidget {
     required this.totalMostrado,
     required this.onSearchChanged,
     required this.onFiltroChanged,
+    required this.onExpand,
   });
 
   @override
@@ -440,24 +461,43 @@ class _InventarioToolbar extends StatelessWidget {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: _InventarioFiltro.values.map((item) {
-              final selected = item == filtro;
-              return ChoiceChip(
-                label: Text(item.label),
-                selected: selected,
-                showCheckmark: false,
-                selectedColor: AppColors.primary,
-                backgroundColor: AppColors.card,
-                labelStyle: TextStyle(
-                  color: selected ? Colors.black : AppColors.textSecondary,
-                  fontWeight: FontWeight.w800,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              ..._InventarioFiltro.values.map((item) {
+                final selected = item == filtro;
+                return ChoiceChip(
+                  label: Text(item.label),
+                  selected: selected,
+                  showCheckmark: false,
+                  selectedColor: AppColors.primary,
+                  backgroundColor: AppColors.card,
+                  labelStyle: TextStyle(
+                    color: selected ? Colors.black : AppColors.textSecondary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                  side: BorderSide(
+                    color: selected ? AppColors.primary : AppColors.border,
+                  ),
+                  onSelected: (_) => onFiltroChanged(item),
+                );
+              }),
+              OutlinedButton.icon(
+                onPressed: onExpand,
+                icon: const Icon(Icons.open_in_full_rounded),
+                label: const Text('Lista completa'),
+              ),
+              if (compact)
+                Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: Text(
+                    '$totalMostrado resultados',
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
-                side: BorderSide(
-                  color: selected ? AppColors.primary : AppColors.border,
-                ),
-                onSelected: (_) => onFiltroChanged(item),
-              );
-            }).toList(),
+            ],
           ),
         ],
       ),
@@ -602,7 +642,7 @@ class _InventarioItemHeader extends StatelessWidget {
             children: [
               Text(
                 producto.nombre,
-                maxLines: 1,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: AppColors.textPrimary,
@@ -709,6 +749,212 @@ class _StatusBadge extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _InventarioCompletoDialog extends StatefulWidget {
+  final List<ProductoModel> productos;
+  final String sucursal;
+  final _InventarioFiltro filtroInicial;
+  final String busquedaInicial;
+
+  const _InventarioCompletoDialog({
+    required this.productos,
+    required this.sucursal,
+    required this.filtroInicial,
+    required this.busquedaInicial,
+  });
+
+  @override
+  State<_InventarioCompletoDialog> createState() =>
+      _InventarioCompletoDialogState();
+}
+
+class _InventarioCompletoDialogState extends State<_InventarioCompletoDialog> {
+  late final TextEditingController busquedaController;
+  late _InventarioFiltro filtro;
+
+  @override
+  void initState() {
+    super.initState();
+    busquedaController = TextEditingController(text: widget.busquedaInicial);
+    filtro = widget.filtroInicial;
+  }
+
+  @override
+  void dispose() {
+    busquedaController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < 760;
+    final productos = _filtrar();
+    final sucursalLabel = widget.sucursal == Branches.casaCentral
+        ? 'Casa Central Santa Fe'
+        : 'Sucursal Alberdi';
+
+    return Dialog.fullscreen(
+      backgroundColor: const Color(0xFF111111),
+      child: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.all(compact ? 10 : 18),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Inventario completo',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '$sucursalLabel - ${productos.length} productos',
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton.filled(
+                    tooltip: 'Cerrar',
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: EdgeInsets.all(compact ? 12 : 14),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: busquedaController,
+                      onChanged: (_) => setState(() {}),
+                      decoration: InputDecoration(
+                        hintText: 'Buscar producto, codigo, categoria...',
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: busquedaController.text.trim().isEmpty
+                            ? null
+                            : IconButton(
+                                tooltip: 'Limpiar busqueda',
+                                onPressed: () {
+                                  busquedaController.clear();
+                                  setState(() {});
+                                },
+                                icon: const Icon(Icons.close),
+                              ),
+                        filled: true,
+                        fillColor: AppColors.card,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _InventarioFiltro.values.map((item) {
+                        final selected = item == filtro;
+                        return ChoiceChip(
+                          label: Text(item.label),
+                          selected: selected,
+                          showCheckmark: false,
+                          selectedColor: AppColors.primary,
+                          backgroundColor: AppColors.card,
+                          labelStyle: TextStyle(
+                            color: selected
+                                ? Colors.black
+                                : AppColors.textSecondary,
+                            fontWeight: FontWeight.w800,
+                          ),
+                          side: BorderSide(
+                            color: selected
+                                ? AppColors.primary
+                                : AppColors.border,
+                          ),
+                          onSelected: (_) => setState(() => filtro = item),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: _InventarioList(
+                  productos: productos,
+                  sucursal: widget.sucursal,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<ProductoModel> _filtrar() {
+    final query = busquedaController.text
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'\s+'), ' ');
+
+    final filtrados = widget.productos.where((producto) {
+      final stock = producto.stockEnSucursal(widget.sucursal);
+      final minimo = producto.stockMinimoEnSucursal(widget.sucursal);
+      final texto = [
+        producto.codigo,
+        producto.nombre,
+        producto.categoria,
+        producto.marca,
+        producto.proveedor,
+        producto.ubicacion,
+      ].join(' ').trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+
+      if (query.isNotEmpty && !texto.contains(query)) {
+        return false;
+      }
+
+      return switch (filtro) {
+        _InventarioFiltro.todos => true,
+        _InventarioFiltro.conStock => stock > 0,
+        _InventarioFiltro.stockBajo => stock > 0 && stock <= minimo,
+        _InventarioFiltro.sinStock => stock <= 0,
+      };
+    }).toList();
+
+    filtrados.sort((a, b) {
+      final estadoA = _estado(a, widget.sucursal).orden;
+      final estadoB = _estado(b, widget.sucursal).orden;
+      if (estadoA != estadoB) {
+        return estadoA.compareTo(estadoB);
+      }
+
+      return a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase());
+    });
+
+    return filtrados;
   }
 }
 
