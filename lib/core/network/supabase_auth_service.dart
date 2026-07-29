@@ -116,6 +116,7 @@ class SupabaseAuthService {
               ),
               headers: {
                 'apikey': SupabaseConfig.anonKey,
+                'authorization': 'Bearer ${SupabaseConfig.anonKey}',
                 'content-type': 'application/json',
               },
               body: jsonEncode({'email': email, 'password': password}),
