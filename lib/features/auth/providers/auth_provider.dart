@@ -81,15 +81,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return false;
     }
 
-    final cloudProfile = await SupabaseAuthService.loadProfile(
-      identifier: nombre,
-      authId: authId,
-    );
     final usuarios = await service.obtenerUsuarios();
     final cloudUser =
-        cloudProfile ??
         SupabaseAuthService.matchUser(
           users: usuarios,
+          identifier: nombre,
+          authId: authId,
+        ) ??
+        await SupabaseAuthService.loadProfile(
           identifier: nombre,
           authId: authId,
         );
