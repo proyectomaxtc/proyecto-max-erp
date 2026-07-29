@@ -215,23 +215,22 @@ class CajaNotifier extends StateNotifier<CajaState> {
     }
 
     final ahora = DateTime.now();
-
-    await repository.guardarTurno(
-      CajaTurnoModel(
-        id: ahora.microsecondsSinceEpoch.toString(),
-        sucursal: sucursal,
-        responsable: responsable,
-        apertura: ahora,
-        cierre: null,
-        saldoInicial: saldoInicial,
-        saldoFinalDeclarado: null,
-        saldoSistema: null,
-        estado: 'Abierta',
-        observaciones: observaciones,
-      ),
+    final turno = CajaTurnoModel(
+      id: ahora.microsecondsSinceEpoch.toString(),
+      sucursal: sucursal,
+      responsable: responsable,
+      apertura: ahora,
+      cierre: null,
+      saldoInicial: saldoInicial,
+      saldoFinalDeclarado: null,
+      saldoSistema: null,
+      estado: 'Abierta',
+      observaciones: observaciones,
     );
 
-    await cargarMovimientos();
+    state = state.copyWith(turnos: [turno, ...state.turnos]);
+
+    await repository.guardarTurnoRapido(turno);
   }
 
   Future<void> cerrarCaja({

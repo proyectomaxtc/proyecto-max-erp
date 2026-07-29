@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:hive/hive.dart';
 
 import '../../../core/storage/cloud_json_store.dart';
@@ -50,6 +52,17 @@ class CajaService {
       table: StorageBoxes.cajaTurnos,
       id: turno.id,
       data: turno.toMap(),
+    );
+  }
+
+  Future<void> guardarTurnoRapido(CajaTurnoModel turno) async {
+    await _turnosBox.put(turno.id, turno.toMap());
+    unawaited(
+      CloudJsonStore.save(
+        table: StorageBoxes.cajaTurnos,
+        id: turno.id,
+        data: turno.toMap(),
+      ),
     );
   }
 }

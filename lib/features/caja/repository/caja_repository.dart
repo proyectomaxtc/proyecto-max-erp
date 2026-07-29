@@ -26,4 +26,8 @@ class CajaRepository {
   Future<void> guardarTurno(CajaTurnoModel turno) {
     return service.guardarTurno(turno);
   }
+
+  Future<void> guardarTurnoRapido(CajaTurnoModel turno) {
+    return service.guardarTurnoRapido(turno);
+  }
 }

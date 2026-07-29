@@ -20,6 +20,7 @@ class _CajaTurnoFormState extends ConsumerState<CajaTurnoForm> {
   final responsableController = TextEditingController();
   final saldoController = TextEditingController();
   final observacionesController = TextEditingController();
+  var guardando = false;
 
   @override
   void dispose() {
@@ -39,36 +40,48 @@ class _CajaTurnoFormState extends ConsumerState<CajaTurnoForm> {
   }
 
   Future<void> guardar() async {
+    if (guardando) {
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    if (widget.cierre) {
-      final autorizado = await OwnerAuthorizationDialog.request(
-        context,
-        reason:
-            "El cierre de caja requiere autorizacion del propietario para validar el saldo declarado.",
-      );
+    setState(() => guardando = true);
 
-      if (!autorizado) {
-        return;
+    try {
+      if (widget.cierre) {
+        final autorizado = await OwnerAuthorizationDialog.request(
+          context,
+          reason:
+              "El cierre de caja requiere autorizacion del propietario para validar el saldo declarado.",
+        );
+
+        if (!autorizado) {
+          return;
+        }
+
+        await ref
+            .read(cajaProvider.notifier)
+            .cerrarCaja(
+              saldoFinalDeclarado: double.tryParse(saldoController.text) ?? 0,
+              observaciones: observacionesController.text.trim(),
+            );
+      } else {
+        await ref
+            .read(cajaProvider.notifier)
+            .abrirCaja(
+              sucursal: ref.read(cajaProvider).sucursalSeleccionada,
+              responsable: responsableController.text.trim(),
+              saldoInicial: double.tryParse(saldoController.text) ?? 0,
+              observaciones: observacionesController.text.trim(),
+            );
       }
-
-      await ref
-          .read(cajaProvider.notifier)
-          .cerrarCaja(
-            saldoFinalDeclarado: double.tryParse(saldoController.text) ?? 0,
-            observaciones: observacionesController.text.trim(),
-          );
-    } else {
-      await ref
-          .read(cajaProvider.notifier)
-          .abrirCaja(
-            sucursal: ref.read(cajaProvider).sucursalSeleccionada,
-            responsable: responsableController.text.trim(),
-            saldoInicial: double.tryParse(saldoController.text) ?? 0,
-            observaciones: observacionesController.text.trim(),
-          );
+    } finally {
+      if (mounted) {
+        setState(() => guardando = false);
+      }
     }
 
     if (!mounted) return;
@@ -149,11 +162,19 @@ class _CajaTurnoFormState extends ConsumerState<CajaTurnoForm> {
               ),
               const SizedBox(width: 16),
               FilledButton.icon(
-                onPressed: guardar,
+                onPressed: guardando ? null : guardar,
                 icon: Icon(
-                  widget.cierre ? Icons.lock_outline : Icons.lock_open,
+                  guardando
+                      ? Icons.hourglass_top_rounded
+                      : widget.cierre
+                      ? Icons.lock_outline
+                      : Icons.lock_open,
                 ),
-                label: Text(widget.cierre ? "Cerrar Caja" : "Abrir Caja"),
+                label: Text(
+                  guardando
+                      ? (widget.cierre ? "Cerrando..." : "Abriendo...")
+                      : (widget.cierre ? "Cerrar Caja" : "Abrir Caja"),
+                ),
               ),
             ],
           ),
