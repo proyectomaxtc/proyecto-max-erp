@@ -7,6 +7,7 @@ import '../../../shared/widgets/dialogs/app_dialog.dart';
 import '../../../shared/widgets/tables/app_data_table.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../caja/widgets/owner_authorization_dialog.dart';
+import '../../productos/providers/producto_provider.dart';
 import '../models/venta_model.dart';
 import '../providers/venta_provider.dart';
 import 'venta_form.dart';
@@ -220,6 +221,7 @@ class _VentasTableState extends ConsumerState<VentasTable> {
 
       try {
         await ref.read(ventaProvider.notifier).eliminarVenta(venta.id);
+        await ref.read(productoProvider.notifier).cargarProductos();
         if (!context.mounted) {
           return;
         }

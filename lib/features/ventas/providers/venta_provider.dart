@@ -64,17 +64,30 @@ class VentaNotifier extends StateNotifier<VentaState> {
       ventas: state.ventas.where((item) => item.id != id).toList(),
     );
 
+    var stockDevuelto = false;
+
     try {
+      if (venta != null &&
+          venta.estado == 'Completada' &&
+          !_stockYaDevueltoPorEliminacion(venta.id)) {
+        await _devolverStock(venta);
+        stockDevuelto = true;
+      }
+
       await repository.eliminarVenta(id);
     } catch (_) {
+      if (venta != null && stockDevuelto) {
+        try {
+          await _descontarStock(venta);
+        } catch (_) {
+          // Si falla la compensacion, igual se restaura la venta en pantalla.
+        }
+      }
       state = state.copyWith(ventas: ventasAntes);
       rethrow;
     }
 
-    if (venta != null &&
-        venta.estado == 'Completada' &&
-        !_stockYaDevueltoPorEliminacion(venta.id)) {
-      await _devolverStock(venta);
+    if (venta != null && stockDevuelto) {
       await _marcarStockDevueltoPorEliminacion(venta.id);
     }
   }
@@ -94,53 +107,47 @@ class VentaNotifier extends StateNotifier<VentaState> {
   }
 
   Future<void> _devolverStock(VentaModel venta) async {
-    final productos = await productoService.obtenerProductos();
-
-    for (final ventaItem in venta.items) {
-      final producto = productos.firstWhere(
-        (producto) => producto.id == ventaItem.productoId,
-        orElse: () => ProductoModel.empty(),
-      );
-
-      if (ventaItem.esVentaLibre ||
-          producto.esVentaLibre ||
-          producto.id.isEmpty) {
-        continue;
-      }
-
-      await productoService.actualizarProducto(
-        producto
-            .conStockSucursal(
-              sucursal: venta.sucursal,
-              stockSucursal:
-                  producto.stockEnSucursal(venta.sucursal) + ventaItem.cantidad,
-            )
-            .copyWith(actualizado: DateTime.now()),
-      );
-    }
+    await _aplicarMovimientoStock(venta, 1);
   }
 
   Future<void> _descontarStock(VentaModel venta) async {
+    await _aplicarMovimientoStock(venta, -1);
+  }
+
+  Future<void> _aplicarMovimientoStock(VentaModel venta, double signo) async {
     final productos = await productoService.obtenerProductos();
+    final cantidadesPorProducto = <String, double>{};
 
     for (final ventaItem in venta.items) {
+      if (ventaItem.esVentaLibre) {
+        continue;
+      }
+
+      cantidadesPorProducto.update(
+        ventaItem.productoId,
+        (cantidad) => cantidad + ventaItem.cantidad,
+        ifAbsent: () => ventaItem.cantidad,
+      );
+    }
+
+    for (final entry in cantidadesPorProducto.entries) {
       final producto = productos.firstWhere(
-        (producto) => producto.id == ventaItem.productoId,
+        (producto) => producto.id == entry.key,
         orElse: () => ProductoModel.empty(),
       );
 
-      if (ventaItem.esVentaLibre ||
-          producto.esVentaLibre ||
-          producto.id.isEmpty) {
+      if (producto.esVentaLibre || producto.id.isEmpty) {
         continue;
       }
+
+      final stockActual = producto.stockEnSucursal(venta.sucursal);
+      final stockNuevo = stockActual + (entry.value * signo);
 
       await productoService.actualizarProducto(
         producto
             .conStockSucursal(
               sucursal: venta.sucursal,
-              stockSucursal:
-                  producto.stockEnSucursal(venta.sucursal) - ventaItem.cantidad,
+              stockSucursal: stockNuevo,
             )
             .copyWith(actualizado: DateTime.now()),
       );
