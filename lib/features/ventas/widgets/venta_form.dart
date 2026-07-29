@@ -116,9 +116,10 @@ class _VentaFormState extends ConsumerState<VentaForm> {
       return;
     }
 
+    final esVentaLibre = producto.esVentaLibre;
     final stockDisponible = _stockDisponible(producto);
 
-    if (stockDisponible <= 0) {
+    if (!esVentaLibre && stockDisponible <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           backgroundColor: AppColors.error,
@@ -135,7 +136,7 @@ class _VentaFormState extends ConsumerState<VentaForm> {
         final item = items[index];
         final nuevaCantidad = item.cantidad + 1;
 
-        if (nuevaCantidad > stockDisponible) {
+        if (!esVentaLibre && nuevaCantidad > stockDisponible) {
           return;
         }
 
@@ -154,8 +155,8 @@ class _VentaFormState extends ConsumerState<VentaForm> {
             codigo: producto.codigo,
             nombre: producto.nombre,
             cantidad: 1,
-            precioUnitario: _precioVenta(producto),
-            costoUnitario: producto.costo,
+            precioUnitario: esVentaLibre ? 0 : _precioVenta(producto),
+            costoUnitario: esVentaLibre ? 0 : producto.costo,
           ),
         );
       }
@@ -164,9 +165,10 @@ class _VentaFormState extends ConsumerState<VentaForm> {
   }
 
   void agregarProducto(ProductoModel producto) {
+    final esVentaLibre = producto.esVentaLibre;
     final stockDisponible = _stockDisponible(producto);
 
-    if (stockDisponible <= 0) {
+    if (!esVentaLibre && stockDisponible <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           backgroundColor: AppColors.error,
@@ -183,7 +185,7 @@ class _VentaFormState extends ConsumerState<VentaForm> {
         final item = items[index];
         final nuevaCantidad = item.cantidad + 1;
 
-        if (nuevaCantidad > stockDisponible) {
+        if (!esVentaLibre && nuevaCantidad > stockDisponible) {
           return;
         }
 
@@ -204,8 +206,8 @@ class _VentaFormState extends ConsumerState<VentaForm> {
           codigo: producto.codigo,
           nombre: producto.nombre,
           cantidad: 1,
-          precioUnitario: _precioVenta(producto),
-          costoUnitario: producto.costo,
+          precioUnitario: esVentaLibre ? 0 : _precioVenta(producto),
+          costoUnitario: esVentaLibre ? 0 : producto.costo,
         ),
       );
     });
@@ -235,7 +237,9 @@ class _VentaFormState extends ConsumerState<VentaForm> {
 
     final stockDisponible = _stockDisponible(producto);
 
-    if (producto.id.isNotEmpty && cantidad > stockDisponible) {
+    if (!item.esVentaLibre &&
+        producto.id.isNotEmpty &&
+        cantidad > stockDisponible) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: AppColors.warning,
@@ -299,6 +303,10 @@ class _VentaFormState extends ConsumerState<VentaForm> {
 
     if (items.isEmpty) {
       _mostrarError('Agregue al menos un producto a la venta');
+      return;
+    }
+
+    if (!_validarVentasLibres()) {
       return;
     }
 
@@ -441,6 +449,10 @@ class _VentaFormState extends ConsumerState<VentaForm> {
         orElse: () => ProductoModel.empty(),
       );
 
+      if (item.esVentaLibre || producto.esVentaLibre) {
+        continue;
+      }
+
       if (producto.id.isEmpty) {
         _mostrarError('No se encontro el producto ${item.nombre}');
         return false;
@@ -451,6 +463,17 @@ class _VentaFormState extends ConsumerState<VentaForm> {
         _mostrarError(
           'Stock insuficiente para ${item.nombre}. Disponible: ${disponible.toStringAsFixed(0)}',
         );
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  bool _validarVentasLibres() {
+    for (final item in items) {
+      if (item.esVentaLibre && item.precioUnitario <= 0) {
+        _mostrarError('Ingrese el monto manual para ${item.nombre}');
         return false;
       }
     }
@@ -469,7 +492,7 @@ class _VentaFormState extends ConsumerState<VentaForm> {
         orElse: () => ProductoModel.empty(),
       );
 
-      if (producto.id.isEmpty) {
+      if (item.esVentaLibre || producto.esVentaLibre || producto.id.isEmpty) {
         continue;
       }
 
@@ -1022,11 +1045,14 @@ class _VentaFormState extends ConsumerState<VentaForm> {
     final stock = producto.stockEnSucursal(_sucursalOperativa());
     final stockSantaFe = producto.stockEnSucursal(Branches.casaCentral);
     final stockAlberdi = producto.stockEnSucursal(Branches.alberdi);
+    final stockLabel = producto.esVentaLibre
+        ? 'Sin control de stock'
+        : 'Stock ${stock.toStringAsFixed(0)} · Santa Fe ${stockSantaFe.toStringAsFixed(0)} · Alberdi ${stockAlberdi.toStringAsFixed(0)}';
 
     return DropdownMenuItem(
       value: producto,
       child: Text(
-        '${producto.codigo} - ${producto.nombre} · Stock ${stock.toStringAsFixed(0)} · Santa Fe ${stockSantaFe.toStringAsFixed(0)} · Alberdi ${stockAlberdi.toStringAsFixed(0)}',
+        '${producto.codigo} - ${producto.nombre} · $stockLabel',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
@@ -1179,6 +1205,9 @@ class _ProductSearchPicker extends StatelessWidget {
                   final stockAlberdi = producto.stockEnSucursal(
                     Branches.alberdi,
                   );
+                  final stockLabel = producto.esVentaLibre
+                      ? 'Sin control de stock'
+                      : 'Stock ${stockSucursal.toStringAsFixed(0)} - SF ${stockSantaFe.toStringAsFixed(0)} - ALB ${stockAlberdi.toStringAsFixed(0)}';
 
                   return ListTile(
                     dense: true,
@@ -1192,7 +1221,7 @@ class _ProductSearchPicker extends StatelessWidget {
                       ),
                     ),
                     subtitle: Text(
-                      '${producto.codigo} - Stock ${stockSucursal.toStringAsFixed(0)} - SF ${stockSantaFe.toStringAsFixed(0)} - ALB ${stockAlberdi.toStringAsFixed(0)}',
+                      '${producto.codigo} - $stockLabel',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(color: AppColors.textSecondary),
@@ -1548,6 +1577,7 @@ class _ItemsTable extends StatelessWidget {
     if (compact) {
       return Column(
         children: items.map((item) {
+          final editarPrecio = puedeEditarPrecio || item.esVentaLibre;
           final cantidadText = item.cantidad % 1 == 0
               ? item.cantidad.toStringAsFixed(0)
               : item.cantidad.toStringAsFixed(2);
@@ -1626,7 +1656,7 @@ class _ItemsTable extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
-                    if (puedeEditarPrecio) ...[
+                    if (editarPrecio) ...[
                       SizedBox(
                         width: 120,
                         child: _InlinePriceField(
@@ -1660,6 +1690,7 @@ class _ItemsTable extends StatelessWidget {
       ),
       child: Column(
         children: items.map((item) {
+          final editarPrecio = puedeEditarPrecio || item.esVentaLibre;
           final cantidadText = item.cantidad % 1 == 0
               ? item.cantidad.toStringAsFixed(0)
               : item.cantidad.toStringAsFixed(2);
@@ -1719,7 +1750,7 @@ class _ItemsTable extends StatelessWidget {
                 const SizedBox(width: 18),
                 SizedBox(
                   width: 110,
-                  child: puedeEditarPrecio
+                  child: editarPrecio
                       ? _InlinePriceField(
                           value: item.precioUnitario,
                           onChanged: (precio) => onPrecioChanged(item, precio),

@@ -19,6 +19,12 @@ class VentaItemModel {
 
   double get costoTotal => cantidad * costoUnitario;
 
+  bool get esVentaLibre {
+    return _esTextoVentaLibre(nombre) ||
+        _esTextoVentaLibre(codigo) ||
+        _esTextoVentaLibre(productoId);
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'productoId': productoId,
@@ -39,5 +45,15 @@ class VentaItemModel {
       precioUnitario: (map['precioUnitario'] as num?)?.toDouble() ?? 0,
       costoUnitario: (map['costoUnitario'] as num?)?.toDouble() ?? 0,
     );
+  }
+
+  static bool _esTextoVentaLibre(String value) {
+    final texto = value
+        .trim()
+        .toUpperCase()
+        .replaceAll(RegExp(r'[^A-Z0-9]+'), ' ')
+        .trim();
+
+    return texto == 'VARIOS' || texto.endsWith(' VARIOS');
   }
 }

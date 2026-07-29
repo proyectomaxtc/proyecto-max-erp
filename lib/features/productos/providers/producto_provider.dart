@@ -191,6 +191,10 @@ class ProductoNotifier extends StateNotifier<ProductoState> {
 
   List<ProductoModel> get productosConStockBajo {
     return state.productos.where((p) {
+      if (p.esVentaLibre) {
+        return false;
+      }
+
       final sucursal = state.sucursalSeleccionada;
       final stock = p.stockEnSucursal(sucursal);
 
@@ -202,6 +206,10 @@ class ProductoNotifier extends StateNotifier<ProductoState> {
     final sucursal = state.sucursalSeleccionada;
 
     return state.productos.where((p) {
+      if (p.esVentaLibre) {
+        return false;
+      }
+
       return p.stockEnSucursal(sucursal) <= 0;
     }).toList();
   }
@@ -211,7 +219,13 @@ class ProductoNotifier extends StateNotifier<ProductoState> {
 
     return state.productos.fold(
       0,
-      (total, p) => total + (p.stockEnSucursal(sucursal) * p.costo),
+      (total, p) {
+        if (p.esVentaLibre) {
+          return total;
+        }
+
+        return total + (p.stockEnSucursal(sucursal) * p.costo);
+      },
     );
   }
 

@@ -184,6 +184,12 @@ class ProductoModel {
     return stockMinimoPorSucursal[sucursal] ?? stockMinimo;
   }
 
+  bool get esVentaLibre {
+    return _esTextoVentaLibre(nombre) ||
+        _esTextoVentaLibre(codigo) ||
+        _esTextoVentaLibre(codigoBarras);
+  }
+
   ProductoModel conStockSucursal({
     required String sucursal,
     required double stockSucursal,
@@ -226,5 +232,15 @@ class ProductoModel {
 
   static double _sumarSucursales(Map<String, double> valores) {
     return valores.values.fold(0, (total, valor) => total + valor);
+  }
+
+  static bool _esTextoVentaLibre(String value) {
+    final texto = value
+        .trim()
+        .toUpperCase()
+        .replaceAll(RegExp(r'[^A-Z0-9]+'), ' ')
+        .trim();
+
+    return texto == 'VARIOS' || texto.endsWith(' VARIOS');
   }
 }

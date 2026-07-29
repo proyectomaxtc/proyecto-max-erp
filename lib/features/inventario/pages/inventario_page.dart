@@ -44,6 +44,9 @@ class _InventarioPageState extends ConsumerState<InventarioPage> {
   Widget build(BuildContext context) {
     final productoState = ref.watch(productoProvider);
     final productos = productoState.productos;
+    final productosInventariables = productos
+        .where((producto) => !producto.esVentaLibre)
+        .toList();
     final sucursal = productoState.sucursalSeleccionada;
     final esPropietario = ref.watch(authProvider).esPropietario;
 
@@ -55,7 +58,7 @@ class _InventarioPageState extends ConsumerState<InventarioPage> {
       );
     }
 
-    final stockBajo = productos
+    final stockBajo = productosInventariables
         .where(
           (producto) =>
               producto.stockEnSucursal(sucursal) > 0 &&
@@ -63,15 +66,18 @@ class _InventarioPageState extends ConsumerState<InventarioPage> {
                   producto.stockMinimoEnSucursal(sucursal),
         )
         .length;
-    final sinStock = productos
+    final sinStock = productosInventariables
         .where((producto) => producto.stockEnSucursal(sucursal) <= 0)
         .length;
-    final valorStock = productos.fold<double>(
+    final valorStock = productosInventariables.fold<double>(
       0,
       (total, producto) =>
           total + producto.stockEnSucursal(sucursal) * producto.costo,
     );
-    final productosFiltrados = _productosFiltrados(productos, sucursal);
+    final productosFiltrados = _productosFiltrados(
+      productosInventariables,
+      sucursal,
+    );
 
     return MainLayout(
       title: "Inventario",
@@ -84,7 +90,7 @@ class _InventarioPageState extends ConsumerState<InventarioPage> {
           ),
           const SizedBox(height: 14),
           _InventarioMetricGrid(
-            productos: productos.length,
+            productos: productosInventariables.length,
             stockBajo: stockBajo,
             sinStock: sinStock,
             valorStock: valorStock,
@@ -97,7 +103,7 @@ class _InventarioPageState extends ConsumerState<InventarioPage> {
             onSearchChanged: (_) => setState(() {}),
             onFiltroChanged: (value) => setState(() => filtro = value),
             onExpand: () => _abrirListaCompleta(
-              productos: productos,
+              productos: productosInventariables,
               sucursal: sucursal,
             ),
           ),

@@ -17,10 +17,16 @@ class ProductoSummary extends ConsumerWidget {
     final sucursal = productoState.sucursalSeleccionada;
     final esPropietario = ref.watch(authProvider).esPropietario;
 
-    final activos = productos.where((producto) => producto.activo).length;
+    final productosInventariables = productos
+        .where((producto) => !producto.esVentaLibre)
+        .toList();
+    final activos = productosInventariables
+        .where((producto) => producto.activo)
+        .length;
     final stockBajo = productos
         .where(
           (producto) =>
+              !producto.esVentaLibre &&
               producto.stockEnSucursal(sucursal) > 0 &&
               producto.stockEnSucursal(sucursal) <=
                   producto.stockMinimoEnSucursal(sucursal),
@@ -28,17 +34,25 @@ class ProductoSummary extends ConsumerWidget {
         .length;
     final sinStock = productos
         .where((producto) => producto.stockEnSucursal(sucursal) <= 0)
+        .where((producto) => !producto.esVentaLibre)
         .length;
     final disponibles = productos
         .where(
           (producto) =>
-              producto.activo && producto.stockEnSucursal(sucursal) > 0,
+              !producto.esVentaLibre &&
+              producto.activo &&
+              producto.stockEnSucursal(sucursal) > 0,
         )
         .length;
     final valorInventario = productos.fold<double>(
       0,
-      (total, producto) =>
-          total + (producto.stockEnSucursal(sucursal) * producto.costo),
+      (total, producto) {
+        if (producto.esVentaLibre) {
+          return total;
+        }
+
+        return total + (producto.stockEnSucursal(sucursal) * producto.costo);
+      },
     );
 
     return LayoutBuilder(
@@ -59,7 +73,7 @@ class ProductoSummary extends ConsumerWidget {
                     value: activos.toString(),
                     icon: Icons.inventory_2_outlined,
                     color: AppColors.info,
-                    subtitle: "${productos.length} cargados",
+                    subtitle: "${productosInventariables.length} cargados",
                   ),
                   KpiCard(
                     title: "Stock bajo",
@@ -103,7 +117,7 @@ class ProductoSummary extends ConsumerWidget {
               value: activos.toString(),
               icon: Icons.inventory_2_outlined,
               color: AppColors.info,
-              subtitle: "${productos.length} cargados en total",
+              subtitle: "${productosInventariables.length} cargados en total",
             ),
           ),
           SizedBox(

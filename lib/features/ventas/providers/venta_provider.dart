@@ -102,7 +102,9 @@ class VentaNotifier extends StateNotifier<VentaState> {
         orElse: () => ProductoModel.empty(),
       );
 
-      if (producto.id.isEmpty) {
+      if (ventaItem.esVentaLibre ||
+          producto.esVentaLibre ||
+          producto.id.isEmpty) {
         continue;
       }
 
@@ -127,7 +129,9 @@ class VentaNotifier extends StateNotifier<VentaState> {
         orElse: () => ProductoModel.empty(),
       );
 
-      if (producto.id.isEmpty) {
+      if (ventaItem.esVentaLibre ||
+          producto.esVentaLibre ||
+          producto.id.isEmpty) {
         continue;
       }
 

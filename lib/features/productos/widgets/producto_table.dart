@@ -197,6 +197,13 @@ class ProductoTable extends ConsumerWidget {
     final stock = producto.stockEnSucursal(sucursal);
     final minimo = producto.stockMinimoEnSucursal(sucursal);
 
+    if (producto.esVentaLibre) {
+      return const _ProductoStatus(
+        label: "Venta libre",
+        color: AppColors.primary,
+      );
+    }
+
     if (!producto.activo) {
       return const _ProductoStatus(
         label: "Inactivo",

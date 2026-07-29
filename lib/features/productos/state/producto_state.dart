@@ -38,10 +38,12 @@ class ProductoState {
         ProductoFilter.activos => producto.activo,
         ProductoFilter.inactivos => !producto.activo,
         ProductoFilter.bajoStock =>
+          !producto.esVentaLibre &&
           producto.stockEnSucursal(sucursalSeleccionada) > 0 &&
               producto.stockEnSucursal(sucursalSeleccionada) <=
                   producto.stockMinimoEnSucursal(sucursalSeleccionada),
         ProductoFilter.sinStock =>
+          !producto.esVentaLibre &&
           producto.stockEnSucursal(sucursalSeleccionada) <= 0,
       };
     }).toList();
