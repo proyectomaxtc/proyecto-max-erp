@@ -49,6 +49,7 @@ class _VentaFormState extends ConsumerState<VentaForm> {
   String estado = 'Completada';
   DateTime fechaVenta = DateTime.now();
   bool modoCopiasLlaves = false;
+  bool guardandoVenta = false;
   final List<VentaItemModel> items = [];
 
   double get subtotal {
@@ -283,6 +284,10 @@ class _VentaFormState extends ConsumerState<VentaForm> {
   }
 
   Future<void> guardarVenta() async {
+    if (guardandoVenta) {
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -301,100 +306,130 @@ class _VentaFormState extends ConsumerState<VentaForm> {
       return;
     }
 
-    final usuario = ref.read(authProvider).usuario;
-    final sucursal = _sucursalOperativa();
+    setState(() => guardandoVenta = true);
 
-    final esEdicion = widget.venta != null;
+    var ventaProcesada = false;
+    String? mensajeExito;
 
-    if (!esEdicion &&
-        estado == 'Completada' &&
-        ref.read(cajaProvider).turnoAbiertoParaSucursal(sucursal) == null) {
-      _mostrarError(
-        'Debe abrir caja de $sucursal antes de registrar una venta completada',
-      );
-      return;
-    }
+    try {
+      final usuario = ref.read(authProvider).usuario;
+      final sucursal = _sucursalOperativa();
 
-    final ahora = DateTime.now();
-    final fechaFinal = DateTime(
-      fechaVenta.year,
-      fechaVenta.month,
-      fechaVenta.day,
-      widget.venta?.fecha.hour ?? ahora.hour,
-      widget.venta?.fecha.minute ?? ahora.minute,
-    );
-    final numero =
-        widget.venta?.numero ??
-        await ref.read(ventaProvider.notifier).generarNumeroVenta();
-    final cliente = clienteSeleccionado!;
+      final esEdicion = widget.venta != null;
 
-    final venta = VentaModel(
-      id: widget.venta?.id ?? ahora.millisecondsSinceEpoch.toString(),
-      numero: numero,
-      clienteId: cliente.id,
-      clienteNombre: '${cliente.nombre} ${cliente.apellido}'.trim(),
-      sucursal: sucursal,
-      items: List.unmodifiable(items),
-      subtotal: subtotal,
-      descuento: descuento,
-      total: total,
-      costoTotal: costoTotal,
-      medioPago: medioPago,
-      estado: estado,
-      fecha: fechaFinal,
-      observaciones: observacionesController.text.trim(),
-    );
-
-    if (widget.venta == null) {
-      await ref.read(ventaProvider.notifier).agregarVenta(venta);
-
-      if (estado == 'Completada') {
-        await _descontarStock();
-        await _registrarIngresoCaja(venta);
-      }
-    } else {
-      await ref
-          .read(ventaProvider.notifier)
-          .actualizarVenta(original: widget.venta!, actualizada: venta);
-      await ref.read(cajaProvider.notifier).sincronizarMovimientoVenta(venta);
-    }
-
-    await ref
-        .read(notificationProvider.notifier)
-        .registrar(
-          usuario: usuario,
-          tipo: 'Venta',
-          titulo: widget.venta == null
-              ? 'Venta ${venta.numero}'
-              : 'Venta modificada ${venta.numero}',
-          detalle:
-              '${venta.clienteNombre} - ${CurrencyFormatter.format(venta.total)} - ${venta.sucursal}',
-          ruta: AppRoutes.ventas,
-          monto: venta.total,
+      if (!esEdicion &&
+          estado == 'Completada' &&
+          ref.read(cajaProvider).turnoAbiertoParaSucursal(sucursal) == null) {
+        _mostrarError(
+          'Debe abrir caja de $sucursal antes de registrar una venta completada',
         );
+        return;
+      }
 
-    if (!mounted) return;
+      final ahora = DateTime.now();
+      final fechaFinal = DateTime(
+        fechaVenta.year,
+        fechaVenta.month,
+        fechaVenta.day,
+        widget.venta?.fecha.hour ?? ahora.hour,
+        widget.venta?.fecha.minute ?? ahora.minute,
+      );
+      final numero =
+          widget.venta?.numero ??
+          await ref.read(ventaProvider.notifier).generarNumeroVenta();
+      final cliente = clienteSeleccionado!;
 
-    final ticketPath = widget.venta == null
-        ? await _ofrecerTicket(venta)
-        : null;
+      final venta = VentaModel(
+        id: widget.venta?.id ?? ahora.millisecondsSinceEpoch.toString(),
+        numero: numero,
+        clienteId: cliente.id,
+        clienteNombre: '${cliente.nombre} ${cliente.apellido}'.trim(),
+        sucursal: sucursal,
+        items: List.unmodifiable(items),
+        subtotal: subtotal,
+        descuento: descuento,
+        total: total,
+        costoTotal: costoTotal,
+        medioPago: medioPago,
+        estado: estado,
+        fecha: fechaFinal,
+        observaciones: observacionesController.text.trim(),
+      );
 
-    if (!mounted) return;
+      if (widget.venta == null) {
+        await ref.read(ventaProvider.notifier).agregarVenta(venta);
+        ventaProcesada = true;
+        mensajeExito = 'Venta registrada correctamente';
 
-    Navigator.pop(context);
+        if (estado == 'Completada') {
+          await _descontarStock();
+          await _registrarIngresoCaja(venta);
+        }
+      } else {
+        await ref
+            .read(ventaProvider.notifier)
+            .actualizarVenta(original: widget.venta!, actualizada: venta);
+        await ref.read(cajaProvider.notifier).sincronizarMovimientoVenta(venta);
+        ventaProcesada = true;
+        mensajeExito = 'Venta actualizada correctamente';
+      }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: AppColors.success,
-        content: Text(
-          ticketPath == null
-              ? widget.venta == null
-                    ? 'Venta registrada correctamente'
-                    : 'Venta actualizada correctamente'
-              : 'Venta registrada. Ticket generado: $ticketPath',
+      await ref
+          .read(notificationProvider.notifier)
+          .registrar(
+            usuario: usuario,
+            tipo: 'Venta',
+            titulo: widget.venta == null
+                ? 'Venta ${venta.numero}'
+                : 'Venta modificada ${venta.numero}',
+            detalle:
+                '${venta.clienteNombre} - ${CurrencyFormatter.format(venta.total)} - ${venta.sucursal}',
+            ruta: AppRoutes.ventas,
+            monto: venta.total,
+          );
+
+      if (!mounted) return;
+
+      final ticketPath = widget.venta == null
+          ? await _ofrecerTicket(venta)
+          : null;
+
+      if (!mounted) return;
+
+      Navigator.pop(context);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.success,
+          content: Text(
+            ticketPath == null
+                ? mensajeExito ?? 'Venta guardada correctamente'
+                : 'Venta registrada. Ticket generado: $ticketPath',
+          ),
         ),
-      ),
-    );
+      );
+    } catch (error) {
+      if (ventaProcesada && mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: AppColors.warning,
+            content: Text(
+              'La venta se guardo. Revise caja o sincronizacion si nota diferencias.',
+            ),
+          ),
+        );
+        return;
+      }
+
+      if (mounted) {
+        _mostrarError('No se pudo guardar la venta. Revise conexion y stock.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => guardandoVenta = false);
+      }
+    }
   }
 
   bool _validarStockDisponible() {
@@ -975,6 +1010,7 @@ class _VentaFormState extends ConsumerState<VentaForm> {
           _ActionButtons(
             compact: compact,
             editing: widget.venta != null,
+            saving: guardandoVenta,
             onSave: guardarVenta,
           ),
         ],
@@ -1871,28 +1907,38 @@ class _VentaDetailsSection extends StatelessWidget {
 class _ActionButtons extends StatelessWidget {
   final bool compact;
   final bool editing;
+  final bool saving;
   final VoidCallback onSave;
 
   const _ActionButtons({
     required this.compact,
     required this.editing,
+    required this.saving,
     required this.onSave,
   });
 
   @override
   Widget build(BuildContext context) {
     final cancelButton = OutlinedButton.icon(
-      onPressed: () {
-        Navigator.pop(context);
-      },
+      onPressed: saving
+          ? null
+          : () {
+              Navigator.pop(context);
+            },
       icon: const Icon(Icons.close),
       label: const Text("Cancelar"),
     );
 
     final saveButton = FilledButton.icon(
-      onPressed: onSave,
-      icon: const Icon(Icons.check_circle_outline),
-      label: Text(editing ? "Actualizar Venta" : "Registrar Venta"),
+      onPressed: saving ? null : onSave,
+      icon: Icon(
+        saving ? Icons.hourglass_top_rounded : Icons.check_circle_outline,
+      ),
+      label: Text(
+        saving
+            ? (editing ? "Actualizando..." : "Registrando...")
+            : (editing ? "Actualizar Venta" : "Registrar Venta"),
+      ),
     );
 
     if (compact) {
