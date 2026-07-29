@@ -23,6 +23,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final codigoController = TextEditingController(text: '1234');
   bool mostrarCodigo = false;
   bool recordarUsuario = false;
+  bool ingresando = false;
+  bool redirigiendoSesion = false;
   List<String> usuariosRecordados = const [];
 
   static const _recordarKey = 'login_recordar_usuario';
@@ -43,6 +45,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   Future<void> ingresar() async {
+    if (ingresando) {
+      return;
+    }
+
+    setState(() {
+      ingresando = true;
+    });
+
     final ok = await ref
         .read(authProvider.notifier)
         .login(nombre: nombreController.text, codigo: codigoController.text);
@@ -55,7 +65,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
       final auth = ref.read(authProvider);
       context.go(auth.esPropietario ? AppRoutes.dashboard : AppRoutes.ventas);
+      return;
     }
+
+    setState(() {
+      ingresando = false;
+    });
   }
 
   Future<void> _cargarUsuarioRecordado() async {
@@ -412,9 +427,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             width: double.infinity,
             height: 50,
             child: FilledButton.icon(
-              onPressed: ingresar,
-              icon: const Icon(Icons.login_rounded),
-              label: const Text("Ingresar"),
+              onPressed: ingresando ? null : ingresar,
+              icon: ingresando
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.login_rounded),
+              label: Text(ingresando ? "Ingresando..." : "Ingresar"),
             ),
           ),
           const SizedBox(height: 16),
@@ -432,6 +453,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final auth = ref.watch(authProvider);
     final width = MediaQuery.sizeOf(context).width;
     final compact = width < 760;
+
+    if (auth.autenticado && !auth.cargandoSesion && !redirigiendoSesion) {
+      redirigiendoSesion = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        context.go(auth.esPropietario ? AppRoutes.dashboard : AppRoutes.ventas);
+      });
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,

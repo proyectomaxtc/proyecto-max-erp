@@ -13,7 +13,10 @@ class SupabaseAuthService {
     required String identifier,
     required String password,
   }) async {
-    if (!identifier.contains('@')) {
+    final cleanIdentifier = identifier.trim().toLowerCase();
+    final cleanPassword = password.trim();
+
+    if (!cleanIdentifier.contains('@')) {
       return const SupabaseSignInResult();
     }
 
@@ -24,22 +27,16 @@ class SupabaseAuthService {
       );
     }
 
+    final savedSession = _savedSessionFor(cleanIdentifier);
+    if (savedSession != null) {
+      return SupabaseSignInResult(authId: savedSession);
+    }
+
     try {
-      final response = await http
-          .post(
-            Uri.parse(
-              '${SupabaseConfig.url}/auth/v1/token?grant_type=password',
-            ),
-            headers: {
-              'apikey': SupabaseConfig.anonKey,
-              'content-type': 'application/json',
-            },
-            body: jsonEncode({
-              'email': identifier.trim(),
-              'password': password.trim(),
-            }),
-          )
-          .timeout(const Duration(seconds: 15));
+      final response = await _postPasswordSignIn(
+        email: cleanIdentifier,
+        password: cleanPassword,
+      );
 
       final body = response.body.isEmpty ? const {} : jsonDecode(response.body);
       final message = body is Map
@@ -63,11 +60,6 @@ class SupabaseAuthService {
       }
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        final savedSession = _savedSessionFor(identifier);
-        if (savedSession != null) {
-          return SupabaseSignInResult(authId: savedSession);
-        }
-
         return const SupabaseSignInResult(
           error:
               'Supabase no permitio iniciar sesion. Revise email, contrasena y clave publishable.',
@@ -84,7 +76,7 @@ class SupabaseAuthService {
       final refreshToken = body['refresh_token'] as String? ?? '';
       final user = body['user'] as Map? ?? {};
       final authId = user['id']?.toString() ?? '';
-      final email = user['email']?.toString() ?? identifier.trim();
+      final email = user['email']?.toString() ?? cleanIdentifier;
 
       if (accessToken.isEmpty || refreshToken.isEmpty || authId.isEmpty) {
         return const SupabaseSignInResult(
@@ -101,16 +93,60 @@ class SupabaseAuthService {
 
       return SupabaseSignInResult(authId: authId);
     } catch (_) {
-      final savedSession = _savedSessionFor(identifier);
-      if (savedSession != null) {
-        return SupabaseSignInResult(authId: savedSession);
-      }
-
       return const SupabaseSignInResult(
         error:
-            'No se pudo conectar con Supabase Auth. Revise conexion o espere unos segundos e intente de nuevo.',
+            'No se pudo conectar con Supabase Auth. Si Supabase figura como Unhealthy, reinicie el proyecto y espere unos minutos. Si ya habia ingresado antes en este dispositivo, cierre y vuelva a abrir la app para recuperar la sesion guardada.',
       );
     }
+  }
+
+  static Future<http.Response> _postPasswordSignIn({
+    required String email,
+    required String password,
+  }) async {
+    http.Response? lastResponse;
+    Object? lastError;
+
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        final response = await http
+            .post(
+              Uri.parse(
+                '${SupabaseConfig.url}/auth/v1/token?grant_type=password',
+              ),
+              headers: {
+                'apikey': SupabaseConfig.anonKey,
+                'content-type': 'application/json',
+              },
+              body: jsonEncode({'email': email, 'password': password}),
+            )
+            .timeout(const Duration(seconds: 8));
+
+        lastResponse = response;
+        if (!_shouldRetry(response.statusCode)) {
+          return response;
+        }
+      } catch (error) {
+        lastError = error;
+      }
+
+      await Future<void>.delayed(Duration(milliseconds: 500 + attempt * 700));
+    }
+
+    if (lastResponse != null) {
+      return lastResponse;
+    }
+
+    throw lastError ?? const FormatException('Supabase Auth no respondio');
+  }
+
+  static bool _shouldRetry(int statusCode) {
+    return statusCode == 408 ||
+        statusCode == 429 ||
+        statusCode == 500 ||
+        statusCode == 502 ||
+        statusCode == 503 ||
+        statusCode == 504;
   }
 
   static Future<void> signOut() async {
