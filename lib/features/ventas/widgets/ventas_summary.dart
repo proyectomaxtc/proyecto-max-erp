@@ -18,44 +18,67 @@ class VentasSummary extends ConsumerWidget {
     final ticketPromedio = state.ventas.isEmpty
         ? 0
         : state.totalVendido / state.ventas.length;
-    final ventasPendientes = state.ventas
-        .where((venta) => venta.estado == 'Pendiente')
-        .length;
-
-    final cards = [
-      KpiCard(
-        title: "Ventas totales",
-        value: CurrencyFormatter.format(state.totalVendido),
-        icon: Icons.payments_outlined,
-        color: AppColors.success,
-        subtitle: "${state.ventasPorSucursal.length} operaciones",
-      ),
-      KpiCard(
-        title: "Completadas",
-        value: state.ventasCompletadas.toString(),
-        icon: Icons.check_circle_outline,
-        color: AppColors.info,
-        subtitle: "Ventas confirmadas",
-      ),
-      KpiCard(
-        title: "Ticket promedio",
-        value: CurrencyFormatter.format(ticketPromedio),
-        icon: Icons.receipt_long_outlined,
-        color: AppColors.primary,
-        subtitle: "Promedio por venta",
-      ),
-      KpiCard(
-        title: esPropietario ? "Rentabilidad" : "Pendientes",
-        value: esPropietario
-            ? CurrencyFormatter.format(state.rentabilidad)
-            : ventasPendientes.toString(),
-        icon: esPropietario
-            ? Icons.trending_up_rounded
-            : Icons.pending_actions_outlined,
-        color: AppColors.warning,
-        subtitle: esPropietario ? "Venta menos costo" : "Ventas por confirmar",
-      ),
-    ];
+    final cards = esPropietario
+        ? [
+            KpiCard(
+              title: "Ventas totales",
+              value: CurrencyFormatter.format(state.totalVendido),
+              icon: Icons.payments_outlined,
+              color: AppColors.success,
+              subtitle: "${state.ventasPorSucursal.length} operaciones",
+            ),
+            KpiCard(
+              title: "Completadas",
+              value: state.ventasCompletadas.toString(),
+              icon: Icons.check_circle_outline,
+              color: AppColors.info,
+              subtitle: "Ventas confirmadas",
+            ),
+            KpiCard(
+              title: "Ticket promedio",
+              value: CurrencyFormatter.format(ticketPromedio),
+              icon: Icons.receipt_long_outlined,
+              color: AppColors.primary,
+              subtitle: "Promedio por venta",
+            ),
+            KpiCard(
+              title: "Rentabilidad",
+              value: CurrencyFormatter.format(state.rentabilidad),
+              icon: Icons.trending_up_rounded,
+              color: AppColors.warning,
+              subtitle: "Venta menos costo",
+            ),
+          ]
+        : const [
+            KpiCard(
+              title: "Ventas",
+              value: "Privado",
+              icon: Icons.payments_outlined,
+              color: AppColors.success,
+              subtitle: "Visible para propietario",
+            ),
+            KpiCard(
+              title: "Completadas",
+              value: "Privado",
+              icon: Icons.check_circle_outline,
+              color: AppColors.info,
+              subtitle: "Operacion registrada",
+            ),
+            KpiCard(
+              title: "Ticket promedio",
+              value: "Privado",
+              icon: Icons.receipt_long_outlined,
+              color: AppColors.primary,
+              subtitle: "Visible para propietario",
+            ),
+            KpiCard(
+              title: "Pendientes",
+              value: "Revisar",
+              icon: Icons.pending_actions_outlined,
+              color: AppColors.warning,
+              subtitle: "Sin mostrar cantidades",
+            ),
+          ];
 
     if (compact) {
       return SizedBox(
