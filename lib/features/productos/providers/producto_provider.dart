@@ -177,6 +177,10 @@ class ProductoNotifier extends StateNotifier<ProductoState> {
     state = state.copyWith(busqueda: texto);
   }
 
+  void cambiarCategoria(String categoria) {
+    state = state.copyWith(categoria: categoria);
+  }
+
   void cambiarFiltro(ProductoFilter filtro) {
     state = state.copyWith(filtro: filtro);
   }

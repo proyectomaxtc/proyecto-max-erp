@@ -27,6 +27,7 @@ class ProductoHeader extends ConsumerWidget {
     final usuario = ref.watch(authProvider).usuario;
     final esPropietario = usuario?.esPropietario ?? false;
     final compact = MediaQuery.sizeOf(context).width < 760;
+    final categorias = _categoriasDisponibles(state.productos);
     final sucursalActual = esPropietario
         ? state.sucursalSeleccionada
         : (usuario?.sucursal ?? state.sucursalSeleccionada);
@@ -95,6 +96,11 @@ class ProductoHeader extends ConsumerWidget {
                   children: [
                     const ProductoSearch(),
                     const SizedBox(height: 10),
+                    _CategoriaFilter(
+                      categorias: categorias,
+                      seleccionada: state.categoria,
+                    ),
+                    const SizedBox(height: 10),
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
@@ -144,6 +150,14 @@ class ProductoHeader extends ConsumerWidget {
                     Row(
                       children: [
                         const Expanded(flex: 3, child: ProductoSearch()),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          flex: 2,
+                          child: _CategoriaFilter(
+                            categorias: categorias,
+                            seleccionada: state.categoria,
+                          ),
+                        ),
                         const SizedBox(width: 16),
                         Expanded(
                           flex: 5,
@@ -937,6 +951,60 @@ String _labelFiltro(ProductoFilter filtro) {
   };
 }
 
+List<String> _categoriasDisponibles(List<ProductoModel> productos) {
+  final categorias = productos
+      .map((producto) => producto.categoria.trim())
+      .where((categoria) => categoria.isNotEmpty)
+      .toSet()
+      .toList();
+  categorias.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+  return categorias;
+}
+
+class _CategoriaFilter extends ConsumerWidget {
+  final List<String> categorias;
+  final String seleccionada;
+
+  const _CategoriaFilter({
+    required this.categorias,
+    required this.seleccionada,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selectedValue = categorias.contains(seleccionada) ? seleccionada : '';
+
+    return DropdownButtonFormField<String>(
+      value: selectedValue,
+      isExpanded: true,
+      dropdownColor: AppColors.surface,
+      decoration: InputDecoration(
+        labelText: 'Categoria',
+        filled: true,
+        fillColor: AppColors.card,
+        prefixIcon: const Icon(Icons.category_outlined),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+      ),
+      items: [
+        const DropdownMenuItem<String>(
+          value: '',
+          child: Text('Todas las categorias'),
+        ),
+        ...categorias.map(
+          (categoria) => DropdownMenuItem<String>(
+            value: categoria,
+            child: Text(categoria, overflow: TextOverflow.ellipsis),
+          ),
+        ),
+      ],
+      onChanged: (value) {
+        ref.read(productoProvider.notifier).cambiarCategoria(value ?? '');
+      },
+    );
+  }
+}
+
 class _CatalogoCompletoDialog extends ConsumerWidget {
   const _CatalogoCompletoDialog();
 
@@ -946,6 +1014,7 @@ class _CatalogoCompletoDialog extends ConsumerWidget {
     final usuario = ref.watch(authProvider).usuario;
     final esPropietario = usuario?.esPropietario ?? false;
     final compact = MediaQuery.sizeOf(context).width < 760;
+    final categorias = _categoriasDisponibles(state.productos);
     final sucursalActual = esPropietario
         ? state.sucursalSeleccionada
         : (usuario?.sucursal ?? state.sucursalSeleccionada);
@@ -1032,6 +1101,11 @@ class _CatalogoCompletoDialog extends ConsumerWidget {
                         children: [
                           const ProductoSearch(),
                           const SizedBox(height: 10),
+                          _CategoriaFilter(
+                            categorias: categorias,
+                            seleccionada: state.categoria,
+                          ),
+                          const SizedBox(height: 10),
                           Wrap(spacing: 8, runSpacing: 8, children: filtros),
                           const SizedBox(height: 10),
                           Wrap(
@@ -1044,6 +1118,14 @@ class _CatalogoCompletoDialog extends ConsumerWidget {
                     : Row(
                         children: [
                           const Expanded(flex: 2, child: ProductoSearch()),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            flex: 2,
+                            child: _CategoriaFilter(
+                              categorias: categorias,
+                              seleccionada: state.categoria,
+                            ),
+                          ),
                           const SizedBox(width: 14),
                           Expanded(
                             flex: 3,

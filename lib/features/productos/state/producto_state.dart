@@ -6,6 +6,7 @@ class ProductoState {
   final List<ProductoModel> productos;
   final bool loading;
   final String busqueda;
+  final String categoria;
   final ProductoFilter filtro;
   final String sucursalSeleccionada;
 
@@ -13,6 +14,7 @@ class ProductoState {
     this.productos = const [],
     this.loading = false,
     this.busqueda = '',
+    this.categoria = '',
     this.filtro = ProductoFilter.todos,
     this.sucursalSeleccionada = Branches.casaCentral,
   });
@@ -30,6 +32,12 @@ class ProductoState {
           producto.proveedor.toLowerCase().contains(texto);
 
       if (!coincideBusqueda) {
+        return false;
+      }
+
+      final categoriaNormalizada = categoria.trim().toLowerCase();
+      if (categoriaNormalizada.isNotEmpty &&
+          producto.categoria.trim().toLowerCase() != categoriaNormalizada) {
         return false;
       }
 
@@ -64,6 +72,7 @@ class ProductoState {
     List<ProductoModel>? productos,
     bool? loading,
     String? busqueda,
+    String? categoria,
     ProductoFilter? filtro,
     String? sucursalSeleccionada,
   }) {
@@ -71,6 +80,7 @@ class ProductoState {
       productos: productos ?? this.productos,
       loading: loading ?? this.loading,
       busqueda: busqueda ?? this.busqueda,
+      categoria: categoria ?? this.categoria,
       filtro: filtro ?? this.filtro,
       sucursalSeleccionada: sucursalSeleccionada ?? this.sucursalSeleccionada,
     );

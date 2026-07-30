@@ -3,8 +3,12 @@ class DashboardStats {
   final double sales;
   final double purchases;
   final double profit;
+  final int salesCount;
+  final double averageTicket;
   final DateTime periodStart;
   final DateTime periodEnd;
+  final List<EmployeePerformance> employeePerformance;
+  final List<BranchPerformance> branchPerformance;
 
   final int lowStockProducts;
   final int pendingServices;
@@ -15,8 +19,12 @@ class DashboardStats {
     required this.sales,
     required this.purchases,
     required this.profit,
+    required this.salesCount,
+    required this.averageTicket,
     required this.periodStart,
     required this.periodEnd,
+    required this.employeePerformance,
+    required this.branchPerformance,
     required this.lowStockProducts,
     required this.pendingServices,
     required this.todayCustomers,
@@ -40,4 +48,36 @@ class DashboardStats {
 
     return '$month ${periodStart.year}';
   }
+}
+
+class EmployeePerformance {
+  final String name;
+  final String branch;
+  final int salesCount;
+  final double salesTotal;
+  final double profitTotal;
+
+  const EmployeePerformance({
+    required this.name,
+    required this.branch,
+    required this.salesCount,
+    required this.salesTotal,
+    required this.profitTotal,
+  });
+
+  double get averageTicket => salesCount == 0 ? 0 : salesTotal / salesCount;
+}
+
+class BranchPerformance {
+  final String branch;
+  final int salesCount;
+  final double salesTotal;
+  final double profitTotal;
+
+  const BranchPerformance({
+    required this.branch,
+    required this.salesCount,
+    required this.salesTotal,
+    required this.profitTotal,
+  });
 }
