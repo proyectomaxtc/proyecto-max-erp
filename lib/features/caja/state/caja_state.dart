@@ -44,6 +44,10 @@ class CajaState {
       return const [];
     }
 
+    return movimientosDelTurno(turno);
+  }
+
+  List<CajaMovimientoModel> movimientosDelTurno(CajaTurnoModel turno) {
     return movimientos
         .where((movimiento) => movimiento.turnoId == turno.id)
         .toList();
@@ -92,6 +96,24 @@ class CajaState {
 
   double get saldoSistemaTurno {
     return (turnoAbierto?.saldoInicial ?? 0) + saldo;
+  }
+
+  double saldoSistemaParaSucursal(String sucursal) {
+    final turno = turnoAbiertoParaSucursal(sucursal);
+
+    if (turno == null) {
+      return 0;
+    }
+
+    final movimientosTurno = movimientosDelTurno(turno);
+    final ingresosTurno = movimientosTurno
+        .where((movimiento) => movimiento.tipo == 'Ingreso')
+        .fold(0.0, (total, movimiento) => total + movimiento.monto);
+    final egresosTurno = movimientosTurno
+        .where((movimiento) => movimiento.tipo == 'Egreso')
+        .fold(0.0, (total, movimiento) => total + movimiento.monto);
+
+    return turno.saldoInicial + ingresosTurno - egresosTurno;
   }
 
   double totalPorMedio(String medioPago) {

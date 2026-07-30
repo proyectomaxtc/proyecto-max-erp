@@ -236,28 +236,43 @@ class CajaNotifier extends StateNotifier<CajaState> {
   Future<void> cerrarCaja({
     required double saldoFinalDeclarado,
     required String observaciones,
+    required String responsable,
+    String? sucursal,
   }) async {
-    final turno = state.turnoAbierto;
+    final sucursalCierre = sucursal ?? state.sucursalSeleccionada;
+    final turnosAbiertos = state.turnos
+        .where((turno) => turno.abierta && turno.sucursal == sucursalCierre)
+        .toList();
 
-    if (turno == null) {
+    if (turnosAbiertos.isEmpty) {
       return;
     }
 
-    final turnoCerrado = turno.copyWith(
-      cierre: DateTime.now(),
-      saldoFinalDeclarado: saldoFinalDeclarado,
-      saldoSistema: state.saldoSistemaTurno,
-      estado: 'Cerrada',
-      observaciones: observaciones,
-    );
+    final cierre = DateTime.now();
+    final saldoSistema = state.saldoSistemaParaSucursal(sucursalCierre);
+    final turnosCerrados = {
+      for (final turno in turnosAbiertos)
+        turno.id: turno.copyWith(
+          responsable: responsable,
+          cierre: cierre,
+          saldoFinalDeclarado: saldoFinalDeclarado,
+          saldoSistema: saldoSistema,
+          estado: 'Cerrada',
+          observaciones: observaciones,
+        ),
+    };
 
     state = state.copyWith(
       turnos: state.turnos
-          .map((item) => item.id == turno.id ? turnoCerrado : item)
+          .map((item) => turnosCerrados[item.id] ?? item)
           .toList(),
     );
 
-    await repository.guardarTurnoRapido(turnoCerrado);
+    for (final turno in turnosCerrados.values) {
+      await repository.guardarTurnoRapido(turno);
+    }
+
+    await cargarMovimientos();
   }
 
   void buscar(String texto) {

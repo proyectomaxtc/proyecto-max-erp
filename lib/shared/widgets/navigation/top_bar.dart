@@ -13,6 +13,7 @@ import '../../../features/notificaciones/providers/notification_provider.dart';
 import '../../../features/productos/enums/producto_filter.dart';
 import '../../../features/productos/providers/producto_provider.dart';
 import '../../../features/ventas/providers/venta_provider.dart';
+import 'pending_logout_provider.dart';
 
 class TopBar extends ConsumerStatefulWidget {
   final String title;
@@ -350,6 +351,8 @@ class _TopBarState extends ConsumerState<TopBar> {
           .cajaAbiertaParaSucursal(usuario.sucursal);
 
       if (cajaAbierta) {
+        ref.read(pendingLogoutAfterCajaCloseProvider.notifier).state = true;
+
         await showDialog<void>(
           context: context,
           builder: (_) {
@@ -376,6 +379,7 @@ class _TopBarState extends ConsumerState<TopBar> {
     }
 
     ref.read(authProvider.notifier).logout();
+    ref.read(pendingLogoutAfterCajaCloseProvider.notifier).state = false;
     if (mounted) {
       context.go(AppRoutes.login);
     }

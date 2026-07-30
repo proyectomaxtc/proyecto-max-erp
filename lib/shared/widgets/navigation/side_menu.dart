@@ -8,6 +8,7 @@ import '../../../core/constants/company.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../features/caja/providers/caja_provider.dart';
 import 'menu_items.dart';
+import 'pending_logout_provider.dart';
 
 class SideMenu extends ConsumerWidget {
   const SideMenu({super.key});
@@ -108,6 +109,8 @@ class SideMenu extends ConsumerWidget {
           .cajaAbiertaParaSucursal(usuario.sucursal);
 
       if (cajaAbierta) {
+        ref.read(pendingLogoutAfterCajaCloseProvider.notifier).state = true;
+
         await showDialog<void>(
           context: context,
           builder: (_) {
@@ -134,6 +137,7 @@ class SideMenu extends ConsumerWidget {
     }
 
     ref.read(authProvider.notifier).logout();
+    ref.read(pendingLogoutAfterCajaCloseProvider.notifier).state = false;
     if (context.mounted) {
       context.go(AppRoutes.login);
     }

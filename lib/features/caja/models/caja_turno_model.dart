@@ -27,6 +27,7 @@ class CajaTurnoModel {
 
   CajaTurnoModel copyWith({
     String? sucursal,
+    String? responsable,
     DateTime? cierre,
     double? saldoFinalDeclarado,
     double? saldoSistema,
@@ -36,7 +37,7 @@ class CajaTurnoModel {
     return CajaTurnoModel(
       id: id,
       sucursal: sucursal ?? this.sucursal,
-      responsable: responsable,
+      responsable: responsable ?? this.responsable,
       apertura: apertura,
       cierre: cierre ?? this.cierre,
       saldoInicial: saldoInicial,

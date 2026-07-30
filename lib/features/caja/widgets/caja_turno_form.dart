@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../app/routes.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../features/auth/providers/auth_provider.dart';
+import '../../../shared/widgets/navigation/pending_logout_provider.dart';
 import '../providers/caja_provider.dart';
 
 class CajaTurnoForm extends ConsumerStatefulWidget {
@@ -20,6 +24,16 @@ class _CajaTurnoFormState extends ConsumerState<CajaTurnoForm> {
   final saldoController = TextEditingController();
   final observacionesController = TextEditingController();
   var guardando = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    final usuario = ref.read(authProvider).usuario;
+    if (!widget.cierre && usuario != null) {
+      responsableController.text = usuario.nombre;
+    }
+  }
 
   @override
   void dispose() {
@@ -50,19 +64,29 @@ class _CajaTurnoFormState extends ConsumerState<CajaTurnoForm> {
     setState(() => guardando = true);
 
     try {
+      final usuario = ref.read(authProvider).usuario;
+      final responsable = usuario?.nombre.trim().isNotEmpty == true
+          ? usuario!.nombre.trim()
+          : responsableController.text.trim();
+      final sucursal = usuario?.esPropietario == true
+          ? ref.read(cajaProvider).sucursalSeleccionada
+          : (usuario?.sucursal ?? ref.read(cajaProvider).sucursalSeleccionada);
+
       if (widget.cierre) {
         await ref
             .read(cajaProvider.notifier)
             .cerrarCaja(
               saldoFinalDeclarado: double.tryParse(saldoController.text) ?? 0,
               observaciones: observacionesController.text.trim(),
+              responsable: responsable,
+              sucursal: sucursal,
             );
       } else {
         await ref
             .read(cajaProvider.notifier)
             .abrirCaja(
-              sucursal: ref.read(cajaProvider).sucursalSeleccionada,
-              responsable: responsableController.text.trim(),
+              sucursal: sucursal,
+              responsable: responsable,
               saldoInicial: double.tryParse(saldoController.text) ?? 0,
               observaciones: observacionesController.text.trim(),
             );
@@ -75,9 +99,21 @@ class _CajaTurnoFormState extends ConsumerState<CajaTurnoForm> {
 
     if (!mounted) return;
 
+    final cerrarSesionPendiente =
+        widget.cierre && ref.read(pendingLogoutAfterCajaCloseProvider);
+    final router = GoRouter.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
     Navigator.pop(context);
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    if (cerrarSesionPendiente) {
+      ref.read(pendingLogoutAfterCajaCloseProvider.notifier).state = false;
+      ref.read(authProvider.notifier).logout();
+      router.go(AppRoutes.login);
+      return;
+    }
+
+    messenger.showSnackBar(
       SnackBar(
         backgroundColor: AppColors.success,
         content: Text(widget.cierre ? 'Caja cerrada' : 'Caja abierta'),
@@ -88,9 +124,17 @@ class _CajaTurnoFormState extends ConsumerState<CajaTurnoForm> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(cajaProvider);
-    final turno = state.turnoAbierto;
+    final usuario = ref.watch(authProvider).usuario;
+    final sucursal = usuario?.esPropietario == true
+        ? state.sucursalSeleccionada
+        : (usuario?.sucursal ?? state.sucursalSeleccionada);
+    final turno = state.turnoAbiertoParaSucursal(sucursal);
     final saldoDeclarado = double.tryParse(saldoController.text) ?? 0;
-    final diferencia = saldoDeclarado - state.saldoSistemaTurno;
+    final saldoSistema = state.saldoSistemaParaSucursal(sucursal);
+    final diferencia = saldoDeclarado - saldoSistema;
+    final responsableCierre = usuario?.nombre.trim().isNotEmpty == true
+        ? usuario!.nombre.trim()
+        : turno?.responsable ?? '';
 
     return Form(
       key: _formKey,
@@ -98,14 +142,14 @@ class _CajaTurnoFormState extends ConsumerState<CajaTurnoForm> {
         children: [
           if (widget.cierre && turno != null) ...[
             _InfoBox(
-              responsable: turno.responsable,
-              saldoSistema: state.saldoSistemaTurno,
+              responsable: responsableCierre,
+              saldoSistema: saldoSistema,
               diferencia: diferencia,
             ),
             const SizedBox(height: 18),
           ],
           if (!widget.cierre) ...[
-            _SucursalBox(sucursal: state.sucursalSeleccionada),
+            _SucursalBox(sucursal: sucursal),
             const SizedBox(height: 18),
             TextFormField(
               controller: responsableController,
