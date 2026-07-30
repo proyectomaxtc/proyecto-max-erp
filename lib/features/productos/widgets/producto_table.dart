@@ -582,8 +582,10 @@ class _ProductoThumb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageBytes = _imageBytes(path);
+    final isNetworkImage = _isNetworkImage(path);
     final tieneFoto =
         imageBytes != null ||
+        isNetworkImage ||
         path.trim().isNotEmpty &&
             (path.startsWith('assets/') ||
                 (!kIsWeb && File(path).existsSync()));
@@ -599,6 +601,18 @@ class _ProductoThumb extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: imageBytes != null
           ? Image.memory(imageBytes, fit: BoxFit.cover)
+          : isNetworkImage
+          ? Image.network(
+              path,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return const Icon(
+                  Icons.image_outlined,
+                  color: AppColors.textDisabled,
+                  size: 22,
+                );
+              },
+            )
           : tieneFoto && path.startsWith('assets/')
           ? Image.asset(path, fit: BoxFit.cover)
           : tieneFoto && !kIsWeb
@@ -647,6 +661,18 @@ class _ProductoThumb extends StatelessWidget {
                     ),
                     child: imageBytes != null
                         ? Image.memory(imageBytes, fit: BoxFit.contain)
+                        : _isNetworkImage(path)
+                        ? Image.network(
+                            path,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Icon(
+                                Icons.image_outlined,
+                                color: AppColors.textDisabled,
+                                size: 64,
+                              );
+                            },
+                          )
                         : path.startsWith('assets/')
                         ? Image.asset(path, fit: BoxFit.contain)
                         : Image.file(File(path), fit: BoxFit.contain),
@@ -679,6 +705,10 @@ class _ProductoThumb extends StatelessWidget {
     }
 
     return base64Decode(value.substring(comma + 1));
+  }
+
+  bool _isNetworkImage(String value) {
+    return value.startsWith('http://') || value.startsWith('https://');
   }
 }
 

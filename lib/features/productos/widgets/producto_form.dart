@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../../core/constants/branches.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/storage/product_image_storage.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../configuracion/providers/configuracion_provider.dart';
 import '../constants/producto_categorias.dart';
@@ -286,10 +287,12 @@ class _ProductoFormState extends ConsumerState<ProductoForm> {
         (total, value) => total + value,
       );
 
-      final imagenPersistente = await _imagenPersistente();
+      final productoId =
+          widget.producto?.id ?? ahora.millisecondsSinceEpoch.toString();
+      final imagenPersistente = await _imagenPersistente(productoId);
 
       final producto = ProductoModel(
-        id: widget.producto?.id ?? ahora.millisecondsSinceEpoch.toString(),
+        id: productoId,
         codigo: codigoController.text.trim(),
         codigoBarras: codigoBarrasController.text.trim(),
         nombre: nombreController.text.trim(),
@@ -417,10 +420,18 @@ class _ProductoFormState extends ConsumerState<ProductoForm> {
     }
   }
 
-  Future<String> _imagenPersistente() async {
+  Future<String> _imagenPersistente(String productoId) async {
     final value = imagenPathController.text.trim();
-    if (value.isEmpty || value.startsWith('data:image/')) {
+    if (value.isEmpty || value.startsWith('http')) {
       return value;
+    }
+
+    if (value.startsWith('data:image/')) {
+      return await ProductImageStorage.uploadDataUrl(
+            productId: productoId,
+            dataUrl: value,
+          ) ??
+          value;
     }
 
     if (kIsWeb) {
@@ -435,7 +446,12 @@ class _ProductoFormState extends ConsumerState<ProductoForm> {
     final extension = p.extension(file.path).toLowerCase();
     final mime = _mimeImagen(extension, null);
     final bytes = await file.readAsBytes();
-    return 'data:$mime;base64,${base64Encode(bytes)}';
+    final dataUrl = 'data:$mime;base64,${base64Encode(bytes)}';
+    return await ProductImageStorage.uploadDataUrl(
+          productId: productoId,
+          dataUrl: dataUrl,
+        ) ??
+        dataUrl;
   }
 
   String _mimeImagen(String extension, String? reportedMime) {
@@ -878,8 +894,10 @@ class _FotoProductoField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageBytes = _imageBytes(path);
+    final isNetworkImage = _isNetworkImage(path);
     final tieneFoto =
         imageBytes != null ||
+        isNetworkImage ||
         (!kIsWeb && path.trim().isNotEmpty && File(path).existsSync());
 
     return Container(
@@ -902,6 +920,18 @@ class _FotoProductoField extends StatelessWidget {
             clipBehavior: Clip.antiAlias,
             child: imageBytes != null
                 ? Image.memory(imageBytes, fit: BoxFit.cover)
+                : isNetworkImage
+                ? Image.network(
+                    path,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Icon(
+                        Icons.image_outlined,
+                        color: AppColors.textDisabled,
+                        size: 34,
+                      );
+                    },
+                  )
                 : tieneFoto
                 ? Image.file(File(path), fit: BoxFit.cover)
                 : const Icon(
@@ -974,9 +1004,17 @@ class _FotoProductoField extends StatelessWidget {
     }
   }
 
+  bool _isNetworkImage(String value) {
+    return value.startsWith('http://') || value.startsWith('https://');
+  }
+
   String _fotoNombre(String value) {
     if (value.startsWith('data:image/')) {
       return 'Foto cargada desde galeria';
+    }
+
+    if (_isNetworkImage(value)) {
+      return 'Foto guardada en la nube';
     }
 
     return p.basename(value);
