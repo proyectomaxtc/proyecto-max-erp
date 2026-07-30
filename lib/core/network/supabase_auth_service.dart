@@ -27,11 +27,6 @@ class SupabaseAuthService {
       );
     }
 
-    final savedSession = _savedSessionFor(cleanIdentifier);
-    if (savedSession != null) {
-      return SupabaseSignInResult(authId: savedSession);
-    }
-
     try {
       final response = await _postPasswordSignIn(
         email: cleanIdentifier,
@@ -95,7 +90,7 @@ class SupabaseAuthService {
     } catch (_) {
       return const SupabaseSignInResult(
         error:
-            'No se pudo conectar con Supabase Auth. Si Supabase figura como Unhealthy, reinicie el proyecto y espere unos minutos. Si ya habia ingresado antes en este dispositivo, cierre y vuelva a abrir la app para recuperar la sesion guardada.',
+            'No se pudo conectar con Supabase Auth. Revise la conexion o espere unos segundos e intente de nuevo.',
       );
     }
   }
@@ -310,20 +305,6 @@ class SupabaseAuthService {
 
   static String _normalize(String value) {
     return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
-  }
-
-  static String? _savedSessionFor(String identifier) {
-    final authId = CloudJsonStore.currentAuthId;
-    final email = CloudJsonStore.currentEmail;
-    if (authId == null || authId.isEmpty || email == null || email.isEmpty) {
-      return null;
-    }
-
-    if (email.trim().toLowerCase() != identifier.trim().toLowerCase()) {
-      return null;
-    }
-
-    return authId;
   }
 
 }

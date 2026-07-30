@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -25,18 +23,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final usuarios = await service.obtenerUsuarios();
       final usuarioActual = state.usuario;
-      final usuarioRestaurado =
-          usuarioActual ??
-          await _restaurarUsuario(usuarios) ??
-          await _restaurarPerfilGuardado() ??
-          await _restaurarUsuarioSupabase(usuarios);
-      if (usuarioRestaurado != null) {
-        await _guardarSesion(usuarioRestaurado);
+      final usuarioVigente = usuarioActual != null &&
+              usuarios.any(
+                (usuario) => usuario.id == usuarioActual.id && usuario.activo,
+              )
+          ? usuarioActual
+          : null;
+
+      if (usuarioVigente == null) {
+        await _limpiarSesion();
+        await SupabaseAuthService.signOut();
       }
 
       state = state.copyWith(
         usuarios: usuarios,
-        usuario: usuarioRestaurado,
+        usuario: usuarioVigente,
         cargandoSesion: false,
       );
     } catch (_) {
@@ -227,103 +228,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(limpiarUsuario: true, cargandoSesion: false);
   }
 
-  Future<void> _guardarSesion(AppUserModel usuario) async {
-    if (usuario.esPropietario) {
-      await _limpiarSesion();
-      return;
-    }
-
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_sessionUserIdKey, usuario.id);
-    await prefs.setString(_sessionUserProfileKey, jsonEncode(usuario.toMap()));
-  }
-
-  Future<AppUserModel?> _restaurarUsuario(List<AppUserModel> usuarios) async {
-    final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getString(_sessionUserIdKey);
-    if (userId == null || userId.isEmpty) {
-      return null;
-    }
-
-    for (final usuario in usuarios) {
-      if (usuario.id == userId && usuario.activo) {
-        if (usuario.esPropietario) {
-          await _limpiarSesion();
-          return null;
-        }
-
-        return usuario;
-      }
-    }
-
-    await prefs.remove(_sessionUserIdKey);
-    return null;
-  }
-
-  Future<AppUserModel?> _restaurarPerfilGuardado() async {
-    final prefs = await SharedPreferences.getInstance();
-    final rawProfile = prefs.getString(_sessionUserProfileKey);
-    if (rawProfile == null || rawProfile.isEmpty) {
-      return null;
-    }
-
-    try {
-      final data = jsonDecode(rawProfile);
-      if (data is! Map) {
-        return null;
-      }
-
-      final usuario = AppUserModel.fromMap(data);
-      if (!usuario.activo || usuario.id.isEmpty) {
-        return null;
-      }
-
-      if (usuario.esPropietario) {
-        await _limpiarSesion();
-        return null;
-      }
-
-      return usuario;
-    } catch (_) {
-      await prefs.remove(_sessionUserProfileKey);
-      return null;
-    }
-  }
-
-  Future<AppUserModel?> _restaurarUsuarioSupabase(
-    List<AppUserModel> usuarios,
-  ) async {
-    final authId = SupabaseAuthService.currentAuthId();
-    final email = SupabaseAuthService.currentEmail();
-    if (authId == null || email == null) {
-      return null;
-    }
-
-    final cloudUser =
-        SupabaseAuthService.matchUser(
-          users: usuarios,
-          identifier: email,
-          authId: authId,
-        ) ??
-        await SupabaseAuthService.loadProfile(
-          identifier: email,
-          authId: authId,
-        );
-
-    if (cloudUser == null) {
-      return null;
-    }
-
-    final usuarioFinal = _conservarDatosLocales(cloudUser, usuarios);
-    if (usuarioFinal.esPropietario) {
-      await SupabaseAuthService.signOut();
-      await _limpiarSesion();
-      return null;
-    }
-
-    await service.guardarUsuario(usuarioFinal);
-    await _guardarSesion(usuarioFinal);
-    return usuarioFinal;
+  Future<void> _guardarSesion(AppUserModel _) async {
+    await _limpiarSesion();
   }
 
   AppUserModel _conservarDatosLocales(
