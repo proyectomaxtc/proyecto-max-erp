@@ -20,30 +20,35 @@ class SideMenu extends ConsumerWidget {
     final visibleItems = auth.esPropietario
         ? menuItems
         : menuItems.where((item) => item.visibleParaEmpleado).toList();
+    final shortMenu = MediaQuery.sizeOf(context).height < 820;
 
     return Container(
       width: 260,
       color: const Color(0xFF151515),
       child: Column(
         children: [
-          const _CompanyHeader(),
+          _CompanyHeader(compact: shortMenu),
           const Divider(color: AppColors.divider, height: 1),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
+              padding: EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: shortMenu ? 12 : 20,
+              ),
               children: visibleItems
                   .map(
                     (item) => _MenuTile(
                       icon: item.icon,
                       title: item.title,
                       route: item.route,
+                      compact: shortMenu,
                     ),
                   )
                   .toList(),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.fromLTRB(16, shortMenu ? 8 : 16, 16, 10),
             child: SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
@@ -77,19 +82,19 @@ class SideMenu extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: shortMenu ? 4 : 12),
           const Text(
             "Version 1.0.0",
             style: TextStyle(color: AppColors.textDisabled, fontSize: 11),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: shortMenu ? 2 : 4),
           Text(
             usuario == null
                 ? "Sin usuario"
                 : "${usuario.nombre} - ${usuario.rol}",
             style: TextStyle(color: AppColors.textDisabled, fontSize: 11),
           ),
-          const SizedBox(height: 18),
+          SizedBox(height: shortMenu ? 10 : 18),
         ],
       ),
     );
@@ -145,17 +150,28 @@ class SideMenu extends ConsumerWidget {
 }
 
 class _CompanyHeader extends StatelessWidget {
-  const _CompanyHeader();
+  final bool compact;
+
+  const _CompanyHeader({required this.compact});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 26, 18, 28),
+      padding: EdgeInsets.fromLTRB(
+        18,
+        compact ? 18 : 26,
+        18,
+        compact ? 18 : 28,
+      ),
       child: Column(
         children: [
-          Image.asset(Company.logo, width: 150, fit: BoxFit.contain),
-          const SizedBox(height: 20),
-          const Column(
+          Image.asset(
+            Company.logo,
+            width: compact ? 124 : 150,
+            fit: BoxFit.contain,
+          ),
+          SizedBox(height: compact ? 14 : 20),
+          Column(
             children: [
               Text(
                 "Tucuman",
@@ -163,7 +179,7 @@ class _CompanyHeader extends StatelessWidget {
                 style: TextStyle(
                   color: AppColors.textPrimary,
                   fontWeight: FontWeight.w800,
-                  fontSize: 26,
+                  fontSize: compact ? 23 : 26,
                   height: 1.05,
                 ),
               ),
@@ -173,13 +189,13 @@ class _CompanyHeader extends StatelessWidget {
                 style: TextStyle(
                   color: AppColors.textPrimary,
                   fontWeight: FontWeight.w800,
-                  fontSize: 26,
+                  fontSize: compact ? 23 : 26,
                   height: 1.05,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: compact ? 7 : 10),
           const Text(
             Company.system,
             textAlign: TextAlign.center,
@@ -189,7 +205,7 @@ class _CompanyHeader extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: compact ? 2 : 4),
           const Text(
             Company.slogan,
             textAlign: TextAlign.center,
@@ -205,11 +221,13 @@ class _MenuTile extends StatelessWidget {
   final IconData icon;
   final String title;
   final String route;
+  final bool compact;
 
   const _MenuTile({
     required this.icon,
     required this.title,
     required this.route,
+    required this.compact,
   });
 
   @override
@@ -229,7 +247,10 @@ class _MenuTile extends StatelessWidget {
             context.go(route);
           },
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: compact ? 11 : 14,
+            ),
             child: Row(
               children: [
                 Icon(
