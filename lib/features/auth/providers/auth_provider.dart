@@ -228,6 +228,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> _guardarSesion(AppUserModel usuario) async {
+    if (usuario.esPropietario) {
+      await _limpiarSesion();
+      return;
+    }
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_sessionUserIdKey, usuario.id);
     await prefs.setString(_sessionUserProfileKey, jsonEncode(usuario.toMap()));
@@ -242,6 +247,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     for (final usuario in usuarios) {
       if (usuario.id == userId && usuario.activo) {
+        if (usuario.esPropietario) {
+          await _limpiarSesion();
+          return null;
+        }
+
         return usuario;
       }
     }
@@ -265,6 +275,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       final usuario = AppUserModel.fromMap(data);
       if (!usuario.activo || usuario.id.isEmpty) {
+        return null;
+      }
+
+      if (usuario.esPropietario) {
+        await _limpiarSesion();
         return null;
       }
 
@@ -300,6 +315,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
 
     final usuarioFinal = _conservarDatosLocales(cloudUser, usuarios);
+    if (usuarioFinal.esPropietario) {
+      await SupabaseAuthService.signOut();
+      await _limpiarSesion();
+      return null;
+    }
 
     await service.guardarUsuario(usuarioFinal);
     await _guardarSesion(usuarioFinal);

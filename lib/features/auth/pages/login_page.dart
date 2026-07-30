@@ -387,7 +387,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   const SizedBox(width: 6),
                   const Expanded(
                     child: Text(
-                      "Recordar usuario en este dispositivo",
+                      "Recordar solo el usuario en este dispositivo",
                       style: TextStyle(color: AppColors.textSecondary),
                     ),
                   ),
