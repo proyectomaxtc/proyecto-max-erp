@@ -36,9 +36,9 @@ class AppColors {
   // ESTADOS
   // ==========================
 
-  static const Color success = primary;
+  static const Color success = Color(0xFF18C37E);
   static const Color warning = Color(0xFFE0A800);
-  static const Color error = Color(0xFF3A3A3A);
+  static const Color error = Color(0xFFFF4D4D);
   static const Color info = Colors.white;
 
   // ==========================

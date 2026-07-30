@@ -212,13 +212,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       width: double.infinity,
       constraints: BoxConstraints(minHeight: compact ? 0 : 540),
       padding: EdgeInsets.symmetric(
-        horizontal: compact ? 24 : 44,
-        vertical: compact ? 26 : 42,
+        horizontal: compact ? 24 : 48,
+        vertical: compact ? 28 : 48,
       ),
-      decoration: const BoxDecoration(
-        color: Color(0xFF151515),
+      decoration: BoxDecoration(
+        color: AppColors.background,
         border: Border(
-          right: BorderSide(color: AppColors.border),
+          right: compact
+              ? BorderSide.none
+              : const BorderSide(color: AppColors.border),
+          bottom: compact
+              ? const BorderSide(color: AppColors.border)
+              : BorderSide.none,
         ),
       ),
       child: Column(
@@ -227,52 +232,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             : MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          Image.asset(
+            Company.logo,
+            width: compact ? 250 : 360,
+            fit: BoxFit.contain,
+          ),
+          SizedBox(height: compact ? 20 : 30),
           Container(
-            width: compact ? 118 : 156,
-            height: compact ? 118 : 156,
-            padding: EdgeInsets.all(compact ? 16 : 20),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: .22),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: AppColors.primary.withValues(alpha: .38),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withValues(alpha: .12),
-                  blurRadius: 34,
-                  spreadRadius: 2,
-                ),
-              ],
-            ),
-            child: Image.asset(
-              Company.logo,
-              fit: BoxFit.contain,
-            ),
+            width: compact ? 150 : 190,
+            height: 2,
+            color: AppColors.primary,
           ),
-          SizedBox(height: compact ? 18 : 26),
-          const Text(
-            "Cerrajeria",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            Company.name,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.primary,
-              fontSize: compact ? 30 : 40,
-              fontWeight: FontWeight.w800,
-              height: 1.05,
-            ),
-          ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 18),
           Text(
             Company.system,
             textAlign: TextAlign.center,
@@ -288,77 +259,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             textAlign: TextAlign.center,
             style: TextStyle(color: AppColors.textSecondary),
           ),
-          SizedBox(height: compact ? 22 : 54),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: .08),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: AppColors.primary.withValues(alpha: .24),
-              ),
-            ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.verified_user_outlined,
-                  color: AppColors.primary,
-                  size: 20,
-                ),
-                SizedBox(width: 10),
-                Flexible(
-                  child: Text(
-                    "Acceso operativo protegido",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(height: compact ? 16 : 28),
-          if (compact)
-            const Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                _AccessPill(
-                  icon: Icons.point_of_sale_rounded,
-                  text: "Empleado",
-                ),
-                _AccessPill(
-                  icon: Icons.admin_panel_settings_outlined,
-                  text: "Propietario",
-                ),
-              ],
-            )
-          else ...[
-            const Row(
-              children: [
-                Expanded(
-                  child: _AccessHint(
-                    icon: Icons.point_of_sale_rounded,
-                    title: "Empleado",
-                    text: "Ventas, caja y catalogo.",
-                  ),
-                ),
-                SizedBox(width: 12),
-                Expanded(
-                  child: _AccessHint(
-                    icon: Icons.admin_panel_settings_outlined,
-                    title: "Propietario",
-                    text: "Control total y reportes.",
-                  ),
-                ),
-              ],
-            ),
-          ],
         ],
       ),
     );
@@ -374,22 +274,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: .12),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: const Text(
-              "Ingreso seguro",
-              style: TextStyle(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w800,
-                fontSize: 12,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
           Text(
             "Ingreso al sistema",
             style: TextStyle(
@@ -612,90 +496,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _AccessPill extends StatelessWidget {
-  final IconData icon;
-  final String text;
-
-  const _AccessPill({required this.icon, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: .14),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: AppColors.primary, size: 18),
-          const SizedBox(width: 8),
-          Text(
-            text,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AccessHint extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String text;
-
-  const _AccessHint({
-    required this.icon,
-    required this.title,
-    required this.text,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: .14),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(icon, color: AppColors.primary),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                text,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }
