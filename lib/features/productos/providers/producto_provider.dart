@@ -146,11 +146,14 @@ class ProductoNotifier extends StateNotifier<ProductoState> {
     return actualizados;
   }
 
-  Future<int> actualizarLlavesDoblePaleta({
+  Future<int> actualizarPreciosLlaves({
+    required String familia,
     required double costo,
     required double precio,
   }) async {
-    final productos = state.productos.where(_esLlaveDoblePaleta).toList();
+    final productos = state.productos
+        .where((producto) => _coincideFamiliaLlave(producto, familia))
+        .toList();
     final ahora = DateTime.now();
 
     for (final producto in productos) {
@@ -161,6 +164,12 @@ class ProductoNotifier extends StateNotifier<ProductoState> {
 
     await cargarProductos();
     return productos.length;
+  }
+
+  int cantidadLlavesPorFamilia(String familia) {
+    return state.productos
+        .where((producto) => _coincideFamiliaLlave(producto, familia))
+        .length;
   }
 
   Future<void> eliminarProducto(String id) async {
@@ -239,19 +248,57 @@ class ProductoNotifier extends StateNotifier<ProductoState> {
     return ProductCodeGenerator.generate(categoria: categoria, numero: numero);
   }
 
-  bool _esLlaveDoblePaleta(ProductoModel producto) {
-    final texto = [
+  bool _coincideFamiliaLlave(ProductoModel producto, String familia) {
+    final texto = _normalizarTexto([
       producto.nombre,
       producto.categoria,
       producto.descripcion,
-    ].join(' ').toLowerCase();
+      producto.marca,
+    ].join(' '));
 
     final esLlave =
         texto.contains('llave') ||
         texto.contains('copia') ||
-        texto.contains('duplicado');
+        texto.contains('duplicado') ||
+        texto.contains('yale') ||
+        texto.contains('moto') ||
+        texto.contains('multipunto') ||
+        texto.contains('multi punto');
 
-    return esLlave && texto.contains('doble paleta');
+    if (!esLlave) {
+      return false;
+    }
+
+    return switch (familia) {
+      'doble_paleta' =>
+        texto.contains('doble paleta') && !texto.contains('grande'),
+      'doble_paleta_grande' =>
+        texto.contains('doble paleta') && texto.contains('grande'),
+      'yale' => texto.contains('yale'),
+      'moto_corta' =>
+        texto.contains('moto') &&
+            (texto.contains('corta') || texto.contains('corto')),
+      'moto_mediana' =>
+        texto.contains('moto') &&
+            (texto.contains('mediana') || texto.contains('mediano')),
+      'multipunto' =>
+        texto.contains('multipunto') || texto.contains('multi punto'),
+      _ => false,
+    };
+  }
+
+  String _normalizarTexto(String value) {
+    return value
+        .trim()
+        .toLowerCase()
+        .replaceAll('á', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('í', 'i')
+        .replaceAll('ó', 'o')
+        .replaceAll('ú', 'u')
+        .replaceAll('ü', 'u')
+        .replaceAll('ñ', 'n')
+        .replaceAll(RegExp(r'\s+'), ' ');
   }
 
   Map<String, double> _stockNormalizado(ProductoModel producto) {

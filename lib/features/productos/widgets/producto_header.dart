@@ -284,6 +284,7 @@ class _ActualizarLlavesDialogState
   final costoController = TextEditingController();
   final precioController = TextEditingController();
   final formKey = GlobalKey<FormState>();
+  String familiaSeleccionada = _familiasLlaves.first.id;
   bool guardando = false;
 
   @override
@@ -295,8 +296,14 @@ class _ActualizarLlavesDialogState
 
   @override
   Widget build(BuildContext context) {
-    final productos = ref.watch(productoProvider).productos;
-    final cantidad = productos.where(_esLlaveDoblePaleta).length;
+    ref.watch(productoProvider);
+    final familia = _familiasLlaves.firstWhere(
+      (item) => item.id == familiaSeleccionada,
+      orElse: () => _familiasLlaves.first,
+    );
+    final cantidad = ref
+        .read(productoProvider.notifier)
+        .cantidadLlavesPorFamilia(familiaSeleccionada);
     final compact = MediaQuery.sizeOf(context).width < 760;
 
     return Dialog(
@@ -317,7 +324,7 @@ class _ActualizarLlavesDialogState
                   children: [
                     const Expanded(
                       child: Text(
-                        "Actualizar llaves doble paleta",
+                        "Actualizar precios de llaves",
                         style: TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 22,
@@ -336,9 +343,43 @@ class _ActualizarLlavesDialogState
                 const SizedBox(height: 10),
                 Text(
                   cantidad == 1
-                      ? "Se actualizara solo 1 producto detectado como llave doble paleta."
-                      : "Se actualizaran solo $cantidad productos detectados como llaves doble paleta.",
+                      ? "Se actualizara solo 1 producto de ${familia.label}."
+                      : "Se actualizaran solo $cantidad productos de ${familia.label}.",
                   style: const TextStyle(color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: familiaSeleccionada,
+                  isExpanded: true,
+                  dropdownColor: AppColors.surface,
+                  decoration: _decoration("Familia de llave"),
+                  items: _familiasLlaves
+                      .map(
+                        (item) => DropdownMenuItem<String>(
+                          value: item.id,
+                          child: Text(item.label),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: guardando
+                      ? null
+                      : (value) {
+                          if (value == null) {
+                            return;
+                          }
+                          setState(() {
+                            familiaSeleccionada = value;
+                          });
+                        },
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  familia.descripcion,
+                  style: const TextStyle(
+                    color: AppColors.textDisabled,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -368,8 +409,8 @@ class _ActualizarLlavesDialogState
                       color: AppColors.primary.withValues(alpha: .45),
                     ),
                   ),
-                  child: const Text(
-                    "Esto no modifica ventas anteriores. Solo cambia el costo y precio para futuras ventas. No afecta otros modelos de llaves que no figuren como doble paleta.",
+                  child: Text(
+                    "Esto no modifica ventas anteriores. Solo cambia costo y precio para futuras ventas de ${familia.label}.",
                     style: TextStyle(
                       color: AppColors.textPrimary,
                       fontWeight: FontWeight.w600,
@@ -435,21 +476,6 @@ class _ActualizarLlavesDialogState
     return double.tryParse(normalized) ?? 0;
   }
 
-  bool _esLlaveDoblePaleta(ProductoModel producto) {
-    final texto = [
-      producto.nombre,
-      producto.categoria,
-      producto.descripcion,
-    ].join(' ').toLowerCase();
-
-    final esLlave =
-        texto.contains('llave') ||
-        texto.contains('copia') ||
-        texto.contains('duplicado');
-
-    return esLlave && texto.contains('doble paleta');
-  }
-
   Future<void> _guardar() async {
     if (!formKey.currentState!.validate()) {
       return;
@@ -461,7 +487,8 @@ class _ActualizarLlavesDialogState
 
     final cantidad = await ref
         .read(productoProvider.notifier)
-        .actualizarLlavesDoblePaleta(
+        .actualizarPreciosLlaves(
+          familia: familiaSeleccionada,
           costo: _parseMoney(costoController.text),
           precio: _parseMoney(precioController.text),
         );
@@ -470,19 +497,69 @@ class _ActualizarLlavesDialogState
       return;
     }
 
+    final familia = _familiasLlaves.firstWhere(
+      (item) => item.id == familiaSeleccionada,
+      orElse: () => _familiasLlaves.first,
+    );
+
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         backgroundColor: AppColors.success,
         content: Text(
           cantidad == 1
-              ? "Se actualizo 1 llave doble paleta"
-              : "Se actualizaron $cantidad llaves doble paleta",
+              ? "Se actualizo 1 producto de ${familia.label}"
+              : "Se actualizaron $cantidad productos de ${familia.label}",
         ),
       ),
     );
   }
 }
+
+class _FamiliaLlaveOption {
+  final String id;
+  final String label;
+  final String descripcion;
+
+  const _FamiliaLlaveOption({
+    required this.id,
+    required this.label,
+    required this.descripcion,
+  });
+}
+
+const _familiasLlaves = [
+  _FamiliaLlaveOption(
+    id: 'doble_paleta',
+    label: 'Doble paleta',
+    descripcion: 'Incluye copias o llaves doble paleta comunes.',
+  ),
+  _FamiliaLlaveOption(
+    id: 'doble_paleta_grande',
+    label: 'Doble paleta grande',
+    descripcion: 'Incluye solo las llaves doble paleta marcadas como grande.',
+  ),
+  _FamiliaLlaveOption(
+    id: 'yale',
+    label: 'Yale',
+    descripcion: 'Incluye llaves o copias identificadas como Yale.',
+  ),
+  _FamiliaLlaveOption(
+    id: 'moto_corta',
+    label: 'Moto corta',
+    descripcion: 'Incluye llaves de moto identificadas como corta o corto.',
+  ),
+  _FamiliaLlaveOption(
+    id: 'moto_mediana',
+    label: 'Moto mediana',
+    descripcion: 'Incluye llaves de moto identificadas como mediana o mediano.',
+  ),
+  _FamiliaLlaveOption(
+    id: 'multipunto',
+    label: 'Multipunto',
+    descripcion: 'Incluye llaves identificadas como multipunto.',
+  ),
+];
 
 class _ImportarListaDialog extends ConsumerStatefulWidget {
   const _ImportarListaDialog();
