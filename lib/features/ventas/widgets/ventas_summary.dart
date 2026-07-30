@@ -5,6 +5,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../shared/widgets/cards/kpi_card.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../caja/providers/caja_provider.dart';
+import '../../productos/providers/producto_provider.dart';
 import '../providers/venta_provider.dart';
 
 class VentasSummary extends ConsumerWidget {
@@ -13,11 +15,37 @@ class VentasSummary extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(ventaProvider);
-    final esPropietario = ref.watch(authProvider).esPropietario;
+    final auth = ref.watch(authProvider);
+    final usuario = auth.usuario;
+    final esPropietario = auth.esPropietario;
     final compact = MediaQuery.sizeOf(context).width < 760;
     final ticketPromedio = state.ventas.isEmpty
         ? 0
         : state.totalVendido / state.ventas.length;
+    final sucursalEmpleado = usuario?.sucursal ?? state.filtroSucursal;
+    final ventasSucursal = state.ventas.where(
+      (venta) => venta.sucursal == sucursalEmpleado,
+    );
+    final ventasHoy = ventasSucursal.any(
+      (venta) => _esHoy(venta.fecha) && venta.estado == 'Completada',
+    );
+    final hayPendientes = ventasSucursal.any(
+      (venta) => venta.estado == 'Pendiente',
+    );
+    final productosSucursal = ref.watch(productoProvider).productos.where(
+      (producto) => producto.activo,
+    );
+    final haySinStock = productosSucursal.any(
+      (producto) => producto.stockEnSucursal(sucursalEmpleado) <= 0,
+    );
+    final hayStockBajo = productosSucursal.any((producto) {
+      final stock = producto.stockEnSucursal(sucursalEmpleado);
+      final minimo = producto.stockMinimoEnSucursal(sucursalEmpleado);
+      return stock > 0 && minimo > 0 && stock <= minimo;
+    });
+    final cajaAbierta = ref
+        .watch(cajaProvider)
+        .cajaAbiertaParaSucursal(sucursalEmpleado);
     final cards = esPropietario
         ? [
             KpiCard(
@@ -49,31 +77,33 @@ class VentasSummary extends ConsumerWidget {
               subtitle: "Venta menos costo",
             ),
           ]
-        : const [
+        : [
             KpiCard(
-              title: "Ventas",
-              value: "Privado",
+              title: "Ventas del dia",
+              value: ventasHoy ? "Cargadas" : "Sin ventas",
               icon: Icons.payments_outlined,
               color: AppColors.success,
-              subtitle: "Visible para propietario",
+              subtitle: "Sin mostrar importes",
             ),
             KpiCard(
-              title: "Completadas",
-              value: "Privado",
-              icon: Icons.check_circle_outline,
-              color: AppColors.info,
-              subtitle: "Operacion registrada",
+              title: "Stock a reponer",
+              value: haySinStock || hayStockBajo ? "Reponer" : "OK",
+              icon: Icons.inventory_2_outlined,
+              color: haySinStock || hayStockBajo
+                  ? AppColors.warning
+                  : AppColors.success,
+              subtitle: "Revisar catalogo",
             ),
             KpiCard(
-              title: "Ticket promedio",
-              value: "Privado",
-              icon: Icons.receipt_long_outlined,
+              title: "Caja",
+              value: cajaAbierta ? "Abierta" : "Cerrada",
+              icon: cajaAbierta ? Icons.lock_open : Icons.lock_outline,
               color: AppColors.primary,
-              subtitle: "Visible para propietario",
+              subtitle: cajaAbierta ? "Turno activo" : "Abrir para operar",
             ),
             KpiCard(
               title: "Pendientes",
-              value: "Revisar",
+              value: hayPendientes ? "Revisar" : "Al dia",
               icon: Icons.pending_actions_outlined,
               color: AppColors.warning,
               subtitle: "Sin mostrar cantidades",
@@ -105,5 +135,12 @@ class VentasSummary extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  bool _esHoy(DateTime fecha) {
+    final hoy = DateTime.now();
+    return fecha.year == hoy.year &&
+        fecha.month == hoy.month &&
+        fecha.day == hoy.day;
   }
 }
