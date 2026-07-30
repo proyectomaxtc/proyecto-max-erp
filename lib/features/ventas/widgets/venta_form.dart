@@ -47,6 +47,7 @@ class _VentaFormState extends ConsumerState<VentaForm> {
   ProductoModel? productoSeleccionado;
   String medioPago = 'Efectivo';
   String estado = 'Completada';
+  late String sucursalVenta;
   DateTime fechaVenta = DateTime.now();
   bool modoCopiasLlaves = false;
   bool guardandoVenta = false;
@@ -74,6 +75,7 @@ class _VentaFormState extends ConsumerState<VentaForm> {
     super.initState();
 
     final venta = widget.venta;
+    sucursalVenta = _sucursalInicial();
     if (venta != null) {
       medioPago = venta.medioPago;
       estado = venta.estado;
@@ -531,7 +533,39 @@ class _VentaFormState extends ConsumerState<VentaForm> {
       return usuario.sucursal;
     }
 
+    return sucursalVenta;
+  }
+
+  String _sucursalInicial() {
+    final venta = widget.venta;
+    if (venta != null) {
+      return venta.sucursal;
+    }
+
+    final usuario = ref.read(authProvider).usuario;
+    if (usuario != null && !usuario.esPropietario) {
+      return usuario.sucursal;
+    }
+
     return ref.read(productoProvider).sucursalSeleccionada;
+  }
+
+  void _cambiarSucursalVenta(String? value) {
+    if (value == null || value == sucursalVenta) {
+      return;
+    }
+
+    if (items.isNotEmpty) {
+      _mostrarError(
+        'Cambie la sucursal antes de agregar productos para no mezclar stock.',
+      );
+      return;
+    }
+
+    setState(() {
+      sucursalVenta = value;
+      productoSeleccionado = null;
+    });
   }
 
   Future<void> _registrarIngresoCaja(VentaModel venta) async {
@@ -842,9 +876,39 @@ class _VentaFormState extends ConsumerState<VentaForm> {
       ),
     );
 
+    final sucursalField = DropdownButtonFormField<String>(
+      initialValue: sucursalVenta,
+      isExpanded: true,
+      decoration: decoration("Sucursal de venta"),
+      dropdownColor: AppColors.surface,
+      items: Branches.values
+          .map(
+            (sucursal) => DropdownMenuItem(
+              value: sucursal,
+              child: Text(
+                sucursal == Branches.casaCentral ? 'Santa Fe' : 'Alberdi',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          )
+          .toList(),
+      onChanged: widget.venta == null ? _cambiarSucursalVenta : null,
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return "Seleccione una sucursal";
+        }
+        return null;
+      },
+    );
+
     final datosVenta = compact
         ? Column(
             children: [
+              if (esPropietario) ...[
+                sucursalField,
+                const SizedBox(height: 12),
+              ],
               clienteField,
               const SizedBox(height: 12),
               pagoField,
@@ -852,13 +916,15 @@ class _VentaFormState extends ConsumerState<VentaForm> {
               fechaField,
             ],
           )
-        : Row(
+        : Wrap(
+            spacing: 14,
+            runSpacing: 14,
             children: [
-              Expanded(child: clienteField),
-              const SizedBox(width: 14),
-              Expanded(child: pagoField),
-              const SizedBox(width: 14),
-              Expanded(child: fechaField),
+              if (esPropietario)
+                SizedBox(width: 220, child: sucursalField),
+              SizedBox(width: esPropietario ? 235 : 260, child: clienteField),
+              SizedBox(width: esPropietario ? 220 : 260, child: pagoField),
+              SizedBox(width: esPropietario ? 220 : 260, child: fechaField),
             ],
           );
 
