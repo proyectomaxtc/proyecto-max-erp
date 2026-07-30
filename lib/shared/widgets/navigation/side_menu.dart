@@ -150,28 +150,49 @@ class _CompanyHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+      padding: const EdgeInsets.fromLTRB(18, 26, 18, 28),
       child: Column(
         children: [
-          Image.asset(Company.logo, height: 80, fit: BoxFit.contain),
-          const SizedBox(height: 18),
-          const Text(
-            Company.name,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.primary,
-              fontWeight: FontWeight.bold,
-              fontSize: 24,
-            ),
+          Image.asset(Company.logo, width: 150, fit: BoxFit.contain),
+          const SizedBox(height: 20),
+          const Column(
+            children: [
+              Text(
+                "Tucuman",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 26,
+                  height: 1.05,
+                ),
+              ),
+              Text(
+                "Cerraduras",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 26,
+                  height: 1.05,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 10),
           const Text(
             Company.system,
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 4),
           const Text(
             Company.slogan,
+            textAlign: TextAlign.center,
             style: TextStyle(color: AppColors.textDisabled, fontSize: 11),
           ),
         ],
