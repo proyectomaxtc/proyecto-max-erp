@@ -26,7 +26,7 @@ class DashboardBody extends ConsumerWidget {
       error: (error, stack) => Center(
         child: Text(
           error.toString(),
-          style: const TextStyle(color: Colors.red),
+          style: const TextStyle(color: AppColors.warning),
         ),
       ),
       data: (data) {
