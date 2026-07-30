@@ -243,17 +243,21 @@ class CajaNotifier extends StateNotifier<CajaState> {
       return;
     }
 
-    await repository.guardarTurno(
-      turno.copyWith(
-        cierre: DateTime.now(),
-        saldoFinalDeclarado: saldoFinalDeclarado,
-        saldoSistema: state.saldoSistemaTurno,
-        estado: 'Cerrada',
-        observaciones: observaciones,
-      ),
+    final turnoCerrado = turno.copyWith(
+      cierre: DateTime.now(),
+      saldoFinalDeclarado: saldoFinalDeclarado,
+      saldoSistema: state.saldoSistemaTurno,
+      estado: 'Cerrada',
+      observaciones: observaciones,
     );
 
-    await cargarMovimientos();
+    state = state.copyWith(
+      turnos: state.turnos
+          .map((item) => item.id == turno.id ? turnoCerrado : item)
+          .toList(),
+    );
+
+    await repository.guardarTurnoRapido(turnoCerrado);
   }
 
   void buscar(String texto) {

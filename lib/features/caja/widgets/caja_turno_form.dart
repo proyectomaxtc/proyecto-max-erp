@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../providers/caja_provider.dart';
-import 'owner_authorization_dialog.dart';
 
 class CajaTurnoForm extends ConsumerStatefulWidget {
   final bool cierre;
@@ -52,16 +51,6 @@ class _CajaTurnoFormState extends ConsumerState<CajaTurnoForm> {
 
     try {
       if (widget.cierre) {
-        final autorizado = await OwnerAuthorizationDialog.request(
-          context,
-          reason:
-              "El cierre de caja requiere autorizacion del propietario para validar el saldo declarado.",
-        );
-
-        if (!autorizado) {
-          return;
-        }
-
         await ref
             .read(cajaProvider.notifier)
             .cerrarCaja(
