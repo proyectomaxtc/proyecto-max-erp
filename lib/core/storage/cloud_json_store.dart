@@ -12,6 +12,7 @@ class CloudJsonStore {
   static bool _initialized = false;
   static bool _available = false;
   static const _requestTimeout = Duration(seconds: 12);
+  static const _syncCacheTtl = Duration(seconds: 45);
   static const _accessTokenKey = 'supabase_access_token';
   static const _refreshTokenKey = 'supabase_refresh_token';
   static const _authIdKey = 'supabase_auth_id';
@@ -20,6 +21,8 @@ class CloudJsonStore {
   static String? _refreshToken;
   static String? _authId;
   static String? _authEmail;
+  static final Map<String, List<Map<dynamic, dynamic>>> _syncCache = {};
+  static final Map<String, DateTime> _syncCacheDates = {};
 
   static bool get enabled => _initialized && _available;
   static bool get hasActiveSession =>
@@ -63,6 +66,8 @@ class CloudJsonStore {
     _refreshToken = null;
     _authId = null;
     _authEmail = null;
+    _syncCache.clear();
+    _syncCacheDates.clear();
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_accessTokenKey);
@@ -77,6 +82,11 @@ class CloudJsonStore {
   }) async {
     if (!enabled || !hasActiveSession) {
       return _localValues(box);
+    }
+
+    final cachedValues = _cachedValues(table);
+    if (cachedValues != null) {
+      return cachedValues;
     }
 
     final remoteValues = await loadAll(table);
@@ -96,7 +106,9 @@ class CloudJsonStore {
         }
       }
 
-      return _localValues(box);
+      final values = _localValues(box);
+      _setCache(table, values);
+      return values;
     }
 
     final mergedValues = <String, Map<dynamic, dynamic>>{};
@@ -133,17 +145,11 @@ class CloudJsonStore {
       }
     }
 
-    await box.clear();
-    for (final value in mergedValues.values) {
-      final id = value['id']?.toString();
-      if (id == null || id.isEmpty) {
-        continue;
-      }
+    final values = mergedValues.values.toList();
+    await _replaceBox(box, values);
+    _setCache(table, values);
 
-      await box.put(id, value);
-    }
-
-    return mergedValues.values.toList();
+    return values;
   }
 
   static Future<List<Map<dynamic, dynamic>>?> loadAll(String table) async {
@@ -204,7 +210,12 @@ class CloudJsonStore {
           }),
         ),
       );
-      return response.statusCode >= 200 && response.statusCode < 300;
+      final saved = response.statusCode >= 200 && response.statusCode < 300;
+      if (saved) {
+        _invalidateCache(table);
+      }
+
+      return saved;
     } catch (_) {
       return false;
     }
@@ -240,6 +251,7 @@ class CloudJsonStore {
         return false;
       }
 
+      _invalidateCache(table);
       return true;
     } catch (_) {
       return false;
@@ -276,6 +288,48 @@ class CloudJsonStore {
         .whereType<Map>()
         .map((value) => Map<dynamic, dynamic>.from(value))
         .toList();
+  }
+
+  static List<Map<dynamic, dynamic>>? _cachedValues(String table) {
+    final cachedAt = _syncCacheDates[table];
+    final cached = _syncCache[table];
+    if (cachedAt == null || cached == null) {
+      return null;
+    }
+
+    if (DateTime.now().difference(cachedAt) > _syncCacheTtl) {
+      _invalidateCache(table);
+      return null;
+    }
+
+    return cached.map((value) => Map<dynamic, dynamic>.from(value)).toList();
+  }
+
+  static void _setCache(String table, List<Map<dynamic, dynamic>> values) {
+    _syncCache[table] = values
+        .map((value) => Map<dynamic, dynamic>.from(value))
+        .toList();
+    _syncCacheDates[table] = DateTime.now();
+  }
+
+  static void _invalidateCache(String table) {
+    _syncCache.remove(table);
+    _syncCacheDates.remove(table);
+  }
+
+  static Future<void> _replaceBox(
+    Box box,
+    List<Map<dynamic, dynamic>> values,
+  ) async {
+    await box.clear();
+    for (final value in values) {
+      final id = value['id']?.toString();
+      if (id == null || id.isEmpty) {
+        continue;
+      }
+
+      await box.put(id, value);
+    }
   }
 
   static Future<bool> _deleteVentaRows(String ventaId) async {
@@ -332,6 +386,7 @@ class CloudJsonStore {
             ),
             headers: {
               'apikey': SupabaseConfig.anonKey,
+              'authorization': 'Bearer ${SupabaseConfig.anonKey}',
               'content-type': 'application/json',
             },
             body: jsonEncode({'refresh_token': refreshToken}),
