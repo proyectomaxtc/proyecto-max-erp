@@ -8,14 +8,45 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../shared/widgets/cards/kpi_card.dart';
 import '../../../shared/widgets/dashboard/dashboard_header.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../caja/providers/caja_provider.dart';
+import '../../clientes/providers/cliente_provider.dart';
+import '../../compras/providers/compra_provider.dart';
+import '../../productos/providers/producto_provider.dart';
+import '../../servicios/providers/servicio_provider.dart';
+import '../../ventas/providers/venta_provider.dart';
 import '../models/dashboard_stats.dart';
 import '../providers/dashboard_provider.dart';
 
-class DashboardBody extends ConsumerWidget {
+class DashboardBody extends ConsumerStatefulWidget {
   const DashboardBody({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardBody> createState() => _DashboardBodyState();
+}
+
+class _DashboardBodyState extends ConsumerState<DashboardBody> {
+  @override
+  void initState() {
+    super.initState();
+
+    Future.microtask(() async {
+      await Future.wait([
+        ref.read(ventaProvider.notifier).cargarVentas().catchError((_) {}),
+        ref.read(cajaProvider.notifier).cargarMovimientos().catchError((_) {}),
+        ref.read(compraProvider.notifier).cargarCompras().catchError((_) {}),
+        ref.read(productoProvider.notifier).cargarProductos().catchError((_) {}),
+        ref.read(servicioProvider.notifier).cargarServicios().catchError((_) {}),
+        ref.read(clienteProvider.notifier).cargarClientes().catchError((_) {}),
+      ]);
+
+      if (mounted) {
+        ref.invalidate(dashboardProvider);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final dashboard = ref.watch(dashboardProvider);
     final usuario = ref.watch(authProvider).usuario;
     final esPropietario = ref.watch(authProvider).esPropietario;
