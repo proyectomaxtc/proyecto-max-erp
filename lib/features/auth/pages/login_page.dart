@@ -210,29 +210,72 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Widget _brandPanel({required bool compact}) {
     return Container(
       width: double.infinity,
-      constraints: BoxConstraints(minHeight: compact ? 0 : 520),
-      padding: EdgeInsets.all(compact ? 22 : 36),
-      color: const Color(0xFF151515),
+      constraints: BoxConstraints(minHeight: compact ? 0 : 540),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 24 : 44,
+        vertical: compact ? 26 : 42,
+      ),
+      decoration: const BoxDecoration(
+        color: Color(0xFF151515),
+        border: Border(
+          right: BorderSide(color: AppColors.border),
+        ),
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: compact
+            ? MainAxisAlignment.start
+            : MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Image.asset(
-            Company.logo,
-            width: compact ? 62 : 92,
-            height: compact ? 62 : 92,
-          ),
-          SizedBox(height: compact ? 18 : 28),
-          Text(
-            Company.name,
-            style: TextStyle(
-              color: AppColors.primary,
-              fontSize: compact ? 26 : 32,
-              fontWeight: FontWeight.bold,
+          Container(
+            width: compact ? 118 : 156,
+            height: compact ? 118 : 156,
+            padding: EdgeInsets.all(compact ? 16 : 20),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: .22),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: .38),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: .12),
+                  blurRadius: 34,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: Image.asset(
+              Company.logo,
+              fit: BoxFit.contain,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: compact ? 18 : 26),
+          const Text(
+            "Cerrajeria",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            Company.name,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.primary,
+              fontSize: compact ? 30 : 40,
+              fontWeight: FontWeight.w800,
+              height: 1.05,
+            ),
+          ),
+          const SizedBox(height: 12),
           Text(
             Company.system,
+            textAlign: TextAlign.center,
             style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: compact ? 16 : 18,
@@ -242,11 +285,46 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           const SizedBox(height: 6),
           const Text(
             Company.slogan,
+            textAlign: TextAlign.center,
             style: TextStyle(color: AppColors.textSecondary),
           ),
-          SizedBox(height: compact ? 24 : 70),
+          SizedBox(height: compact ? 22 : 54),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: .08),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: .24),
+              ),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.verified_user_outlined,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+                SizedBox(width: 10),
+                Flexible(
+                  child: Text(
+                    "Acceso operativo protegido",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: compact ? 16 : 28),
           if (compact)
             const Wrap(
+              alignment: WrapAlignment.center,
               spacing: 12,
               runSpacing: 12,
               children: [
@@ -261,16 +339,24 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               ],
             )
           else ...[
-            const _AccessHint(
-              icon: Icons.point_of_sale_rounded,
-              title: "Empleado",
-              text: "Ingresa directo a ventas y operaciones.",
-            ),
-            const SizedBox(height: 14),
-            const _AccessHint(
-              icon: Icons.admin_panel_settings_outlined,
-              title: "Propietario",
-              text: "Acceso completo a caja, reportes y usuarios.",
+            const Row(
+              children: [
+                Expanded(
+                  child: _AccessHint(
+                    icon: Icons.point_of_sale_rounded,
+                    title: "Empleado",
+                    text: "Ventas, caja y catalogo.",
+                  ),
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: _AccessHint(
+                    icon: Icons.admin_panel_settings_outlined,
+                    title: "Propietario",
+                    text: "Control total y reportes.",
+                  ),
+                ),
+              ],
             ),
           ],
         ],
@@ -280,23 +366,47 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   Widget _loginPanel({required bool compact, required String? error}) {
     return Padding(
-      padding: EdgeInsets.all(compact ? 22 : 38),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 24 : 40,
+        vertical: compact ? 28 : 44,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: .12),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: const Text(
+              "Ingreso seguro",
+              style: TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w800,
+                fontSize: 12,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
           Text(
             "Ingreso al sistema",
             style: TextStyle(
               color: AppColors.textPrimary,
-              fontSize: compact ? 24 : 26,
-              fontWeight: FontWeight.bold,
+              fontSize: compact ? 27 : 32,
+              fontWeight: FontWeight.w800,
+              height: 1.05,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            "Use su usuario local o email de Supabase para operar.",
-            style: TextStyle(color: AppColors.textSecondary),
+          Text(
+            "Identifiquese para operar ventas, caja y stock de la cerrajeria.",
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: compact ? 14 : 15,
+              height: 1.35,
+            ),
           ),
           SizedBox(height: compact ? 22 : 28),
           TextField(
