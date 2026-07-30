@@ -842,200 +842,326 @@ class _VentaFormState extends ConsumerState<VentaForm> {
       ),
     );
 
+    final datosVenta = compact
+        ? Column(
+            children: [
+              clienteField,
+              const SizedBox(height: 12),
+              pagoField,
+              const SizedBox(height: 12),
+              fechaField,
+            ],
+          )
+        : Row(
+            children: [
+              Expanded(child: clienteField),
+              const SizedBox(width: 14),
+              Expanded(child: pagoField),
+              const SizedBox(width: 14),
+              Expanded(child: fechaField),
+            ],
+          );
+
+    final modoCopias = SwitchListTile(
+      contentPadding: EdgeInsets.zero,
+      value: modoCopiasLlaves,
+      title: const Text(
+        "Modo copias de llaves",
+        style: TextStyle(
+          color: AppColors.textPrimary,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      subtitle: const Text(
+        "Filtra modelos visuales para duplicados.",
+        style: TextStyle(color: AppColors.textSecondary),
+      ),
+      secondary: const Icon(Icons.key_rounded, color: AppColors.primary),
+      onChanged: (value) {
+        setState(() {
+          modoCopiasLlaves = value;
+        });
+      },
+    );
+
+    final mayoristaNotice = widget.mayorista
+        ? Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: .12),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: .35),
+              ),
+            ),
+            child: const Text(
+              'Venta mayorista: se usa el precio mayorista cargado. Si el producto no tiene precio mayorista, se usa el precio de venta normal.',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          )
+        : const SizedBox.shrink();
+
+    final productoSelector = modoCopiasLlaves
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (productos.isEmpty) ...[
+                const _ProductLoadNotice(),
+                SizedBox(height: compact ? 10 : 12),
+              ],
+              TextField(
+                controller: busquedaCopiasController,
+                decoration: decoration("Buscar copia de llave").copyWith(
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: busquedaCopiasController.text.trim().isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: "Limpiar busqueda",
+                          onPressed: () {
+                            setState(() {
+                              busquedaCopiasController.clear();
+                            });
+                          },
+                          icon: const Icon(Icons.close),
+                        ),
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+              SizedBox(height: compact ? 10 : 12),
+              _KeyCopyGrid(
+                productos: productosLlaves,
+                totalCopias: productos.where(_esProductoLlave).length,
+                onAdd: agregarProducto,
+              ),
+            ],
+          )
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (productos.isEmpty) ...[
+                const _ProductLoadNotice(),
+                SizedBox(height: compact ? 10 : 12),
+              ],
+              if (compact) ...[
+                _ProductSearchPicker(
+                  productos: productos,
+                  productoSeleccionado: productoSeleccionado,
+                  sucursal: _sucursalOperativa(),
+                  mayorista: widget.mayorista,
+                  decoration: decoration,
+                  onSelected: (producto) {
+                    setState(() {
+                      productoSeleccionado = producto;
+                    });
+                  },
+                  onCleared: () {
+                    setState(() {
+                      productoSeleccionado = null;
+                    });
+                  },
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: agregarItem,
+                    icon: const Icon(Icons.add_shopping_cart),
+                    label: const Text("Agregar producto"),
+                  ),
+                ),
+              ] else ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ProductSearchPicker(
+                        productos: productos,
+                        productoSeleccionado: productoSeleccionado,
+                        sucursal: _sucursalOperativa(),
+                        mayorista: widget.mayorista,
+                        decoration: decoration,
+                        onSelected: (producto) {
+                          setState(() {
+                            productoSeleccionado = producto;
+                          });
+                        },
+                        onCleared: () {
+                          setState(() {
+                            productoSeleccionado = null;
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    SizedBox(
+                      height: 52,
+                      child: FilledButton.icon(
+                        onPressed: agregarItem,
+                        icon: const Icon(Icons.add_shopping_cart),
+                        label: const Text("Agregar"),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          );
+
+    final itemsTable = _ItemsTable(
+      items: items,
+      compact: compact,
+      puedeEditarPrecio: esPropietario || widget.mayorista,
+      onCantidadChanged: actualizarCantidad,
+      onPrecioChanged: actualizarPrecioItem,
+      onRemove: (item) {
+        setState(() {
+          items.remove(item);
+        });
+      },
+    );
+
+    final cobroPanel = _VentaDetailsSection(
+      compact: true,
+      observacionesController: observacionesController,
+      descuentoController: descuentoController,
+      estado: estado,
+      decoration: decoration,
+      onEstadoChanged: (value) {
+        setState(() {
+          estado = value ?? estado;
+        });
+      },
+      totalBox: _TotalBox(
+        subtotal: subtotal,
+        descuento: descuento,
+        total: total,
+      ),
+    );
+
     return Form(
       key: _formKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (compact) ...[
-            clienteField,
-            const SizedBox(height: 12),
-            pagoField,
-            const SizedBox(height: 12),
-            fechaField,
-          ] else ...[
-            Row(
-              children: [
-                Expanded(child: clienteField),
-                const SizedBox(width: 16),
-                Expanded(child: pagoField),
-                const SizedBox(width: 16),
-                Expanded(child: fechaField),
-              ],
-            ),
-          ],
-          SizedBox(height: compact ? 12 : 18),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            value: modoCopiasLlaves,
-            title: const Text(
-              "Modo copias de llaves",
-              style: TextStyle(color: AppColors.textPrimary),
-            ),
-            subtitle: const Text(
-              "Muestra modelos visuales filtrados para duplicados.",
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-            onChanged: (value) {
-              setState(() {
-                modoCopiasLlaves = value;
-              });
-            },
+          _VentaFormHeader(
+            sucursal: _sucursalOperativa(),
+            items: items.length,
+            total: total,
+            editing: widget.venta != null,
           ),
-          if (widget.mayorista) ...[
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: .12),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: AppColors.primary.withValues(alpha: .35),
-                ),
-              ),
-              child: const Text(
-                'Venta mayorista: se usara el precio mayorista cargado en cada producto. Si no tiene precio mayorista, se usa el precio de venta normal.',
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            SizedBox(height: compact ? 10 : 12),
-          ],
-          SizedBox(height: compact ? 8 : 12),
-          if (modoCopiasLlaves) ...[
-            if (productos.isEmpty) ...[
-              const _ProductLoadNotice(),
-              SizedBox(height: compact ? 10 : 12),
-            ],
-            TextField(
-              controller: busquedaCopiasController,
-              decoration: decoration("Buscar copia de llave").copyWith(
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: busquedaCopiasController.text.trim().isEmpty
-                    ? null
-                    : IconButton(
-                        tooltip: "Limpiar busqueda",
-                        onPressed: () {
-                          setState(() {
-                            busquedaCopiasController.clear();
-                          });
-                        },
-                        icon: const Icon(Icons.close),
-                      ),
-              ),
-              onChanged: (_) => setState(() {}),
-            ),
-            SizedBox(height: compact ? 10 : 12),
-            _KeyCopyGrid(
-              productos: productosLlaves,
-              totalCopias: productos.where(_esProductoLlave).length,
-              onAdd: agregarProducto,
-            ),
-            SizedBox(height: compact ? 12 : 20),
-          ] else ...[
-            if (productos.isEmpty) ...[
-              const _ProductLoadNotice(),
-              SizedBox(height: compact ? 10 : 12),
-            ],
-            if (compact) ...[
-              _ProductSearchPicker(
-                productos: productos,
-                productoSeleccionado: productoSeleccionado,
-                sucursal: _sucursalOperativa(),
-                mayorista: widget.mayorista,
-                decoration: decoration,
-                onSelected: (producto) {
-                  setState(() {
-                    productoSeleccionado = producto;
-                  });
-                },
-                onCleared: () {
-                  setState(() {
-                    productoSeleccionado = null;
-                  });
-                },
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: agregarItem,
-                  icon: const Icon(Icons.add_shopping_cart),
-                  label: const Text("Agregar"),
-                ),
-              ),
-            ] else ...[
-              Row(
+          const SizedBox(height: 14),
+          if (compact) ...[
+            _SaleSection(
+              number: 1,
+              title: "Datos de la venta",
+              child: Column(
                 children: [
-                  Expanded(
-                    child: _ProductSearchPicker(
-                      productos: productos,
-                      productoSeleccionado: productoSeleccionado,
-                      sucursal: _sucursalOperativa(),
-                      mayorista: widget.mayorista,
-                      decoration: decoration,
-                      onSelected: (producto) {
-                        setState(() {
-                          productoSeleccionado = producto;
-                        });
-                      },
-                      onCleared: () {
-                        setState(() {
-                          productoSeleccionado = null;
-                        });
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  FilledButton.icon(
-                    onPressed: agregarItem,
-                    icon: const Icon(Icons.add_shopping_cart),
-                    label: const Text("Agregar"),
+                  datosVenta,
+                  const SizedBox(height: 8),
+                  modoCopias,
+                  if (widget.mayorista) ...[
+                    const SizedBox(height: 10),
+                    mayoristaNotice,
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            _SaleSection(
+              number: 2,
+              title: "Agregar productos",
+              child: productoSelector,
+            ),
+            const SizedBox(height: 12),
+            _SaleSection(number: 3, title: "Detalle", child: itemsTable),
+            const SizedBox(height: 12),
+            _SaleSection(
+              number: 4,
+              title: "Cobro y cierre",
+              child: Column(
+                children: [
+                  cobroPanel,
+                  const SizedBox(height: 14),
+                  _ActionButtons(
+                    compact: true,
+                    editing: widget.venta != null,
+                    saving: guardandoVenta,
+                    onSave: guardarVenta,
                   ),
                 ],
               ),
-            ],
-            SizedBox(height: compact ? 12 : 20),
-          ],
-          _ItemsTable(
-            items: items,
-            compact: compact,
-            puedeEditarPrecio: esPropietario || widget.mayorista,
-            onCantidadChanged: actualizarCantidad,
-            onPrecioChanged: actualizarPrecioItem,
-            onRemove: (item) {
-              setState(() {
-                items.remove(item);
-              });
-            },
-          ),
-          SizedBox(height: compact ? 12 : 20),
-          _VentaDetailsSection(
-            compact: compact,
-            observacionesController: observacionesController,
-            descuentoController: descuentoController,
-            estado: estado,
-            decoration: decoration,
-            onEstadoChanged: (value) {
-              setState(() {
-                estado = value ?? estado;
-              });
-            },
-            totalBox: _TotalBox(
-              subtotal: subtotal,
-              descuento: descuento,
-              total: total,
             ),
-          ),
-          SizedBox(height: compact ? 18 : 28),
-          _ActionButtons(
-            compact: compact,
-            editing: widget.venta != null,
-            saving: guardandoVenta,
-            onSave: guardarVenta,
-          ),
+          ] else ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 7,
+                  child: Column(
+                    children: [
+                      _SaleSection(
+                        number: 1,
+                        title: "Datos de la venta",
+                        child: Column(
+                          children: [
+                            datosVenta,
+                            const SizedBox(height: 12),
+                            modoCopias,
+                            if (widget.mayorista) ...[
+                              const SizedBox(height: 12),
+                              mayoristaNotice,
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _SaleSection(
+                        number: 2,
+                        title: "Buscar y agregar producto",
+                        child: productoSelector,
+                      ),
+                      const SizedBox(height: 14),
+                      _SaleSection(
+                        number: 3,
+                        title: "Productos cargados",
+                        trailing: Text(
+                          '${items.length} item${items.length == 1 ? '' : 's'}',
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        child: itemsTable,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                SizedBox(
+                  width: 340,
+                  child: _SaleSection(
+                    number: 4,
+                    title: "Cobro",
+                    child: Column(
+                      children: [
+                        cobroPanel,
+                        const SizedBox(height: 18),
+                        _ActionButtons(
+                          compact: false,
+                          editing: widget.venta != null,
+                          saving: guardandoVenta,
+                          onSave: guardarVenta,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -1105,6 +1231,240 @@ class _VentaFormState extends ConsumerState<VentaForm> {
 
   String _normalizarTexto(String value) {
     return value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+  }
+}
+
+class _VentaFormHeader extends StatelessWidget {
+  final String sucursal;
+  final int items;
+  final double total;
+  final bool editing;
+
+  const _VentaFormHeader({
+    required this.sucursal,
+    required this.items,
+    required this.total,
+    required this.editing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < 760;
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(compact ? 14 : 18),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: .1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.primary.withValues(alpha: .35)),
+      ),
+      child: compact
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _HeaderTitle(editing: editing),
+                const SizedBox(height: 12),
+                _HeaderStats(sucursal: sucursal, items: items, total: total),
+              ],
+            )
+          : Row(
+              children: [
+                Expanded(child: _HeaderTitle(editing: editing)),
+                _HeaderStats(sucursal: sucursal, items: items, total: total),
+              ],
+            ),
+    );
+  }
+}
+
+class _HeaderTitle extends StatelessWidget {
+  final bool editing;
+
+  const _HeaderTitle({required this.editing});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: AppColors.primary,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Icon(Icons.point_of_sale_rounded, color: Colors.black),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                editing ? 'Editar venta' : 'Venta rapida',
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 3),
+              const Text(
+                'Busque, agregue y confirme en pocos pasos.',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HeaderStats extends StatelessWidget {
+  final String sucursal;
+  final int items;
+  final double total;
+
+  const _HeaderStats({
+    required this.sucursal,
+    required this.items,
+    required this.total,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      alignment: WrapAlignment.end,
+      children: [
+        _HeaderChip(
+          icon: Icons.storefront_outlined,
+          label: sucursal,
+        ),
+        _HeaderChip(
+          icon: Icons.shopping_basket_outlined,
+          label: '$items item${items == 1 ? '' : 's'}',
+        ),
+        _HeaderChip(
+          icon: Icons.payments_outlined,
+          label: CurrencyFormatter.format(total),
+          destacado: true,
+        ),
+      ],
+    );
+  }
+}
+
+class _HeaderChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool destacado;
+
+  const _HeaderChip({
+    required this.icon,
+    required this.label,
+    this.destacado = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: destacado ? AppColors.primary : AppColors.surface,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: destacado ? AppColors.primary : AppColors.border,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: destacado ? Colors.black : AppColors.primary,
+          ),
+          const SizedBox(width: 7),
+          Text(
+            label,
+            style: TextStyle(
+              color: destacado ? Colors.black : AppColors.textPrimary,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SaleSection extends StatelessWidget {
+  final int number;
+  final String title;
+  final Widget child;
+  final Widget? trailing;
+
+  const _SaleSection({
+    required this.number,
+    required this.title,
+    required this.child,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Text(
+                  '$number',
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              if (trailing != null) trailing!,
+            ],
+          ),
+          const SizedBox(height: 14),
+          child,
+        ],
+      ),
+    );
   }
 }
 

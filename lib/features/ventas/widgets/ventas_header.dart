@@ -148,8 +148,8 @@ class VentasHeader extends ConsumerWidget {
       builder: (_) {
         return const AppDialog(
           title: "Nueva Venta",
-          maxWidth: 980,
-          maxHeight: 760,
+          maxWidth: 1180,
+          maxHeight: 860,
           child: VentaForm(),
         );
       },
