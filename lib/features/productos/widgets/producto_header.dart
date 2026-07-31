@@ -122,7 +122,7 @@ class ProductoHeader extends ConsumerWidget {
                         FilledButton.icon(
                           onPressed: () => _abrirListaCompleta(context),
                           icon: const Icon(Icons.open_in_full_rounded),
-                          label: const Text("Lista completa"),
+                          label: const Text("Ampliar lista"),
                         ),
                         if (esPropietario) ...[
                           OutlinedButton.icon(
@@ -177,24 +177,24 @@ class ProductoHeader extends ConsumerWidget {
                         ),
                       ],
                     ),
-                    if (esPropietario) ...[
-                      const SizedBox(height: 12),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          alignment: WrapAlignment.end,
-                          children: [
-                            FilledButton.icon(
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        alignment: WrapAlignment.end,
+                        children: [
+                          FilledButton.icon(
+                            icon: const Icon(Icons.open_in_full_rounded),
+                            label: const Text("Ampliar lista"),
+                            onPressed: () => _abrirListaCompleta(context),
+                          ),
+                          if (esPropietario) ...[
+                            OutlinedButton.icon(
                               icon: const Icon(Icons.add),
                               label: const Text("Nuevo Producto"),
                               onPressed: () => _abrirProducto(context),
-                            ),
-                            OutlinedButton.icon(
-                              icon: const Icon(Icons.open_in_full_rounded),
-                              label: const Text("Lista completa"),
-                              onPressed: () => _abrirListaCompleta(context),
                             ),
                             OutlinedButton.icon(
                               icon: const Icon(Icons.swap_horiz_rounded),
@@ -214,9 +214,9 @@ class ProductoHeader extends ConsumerWidget {
                               onPressed: () => _abrirImportadorLista(context),
                             ),
                           ],
-                        ),
+                        ],
                       ),
-                    ],
+                    ),
                   ],
                 ),
         ],

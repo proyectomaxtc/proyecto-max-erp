@@ -211,10 +211,10 @@ create policy "productos owner write"
 on public.productos for insert to authenticated
 with check (public.is_owner());
 
-create policy "productos owner update"
+create policy "productos authenticated update"
 on public.productos for update to authenticated
-using (public.is_owner())
-with check (public.is_owner());
+using (true)
+with check (true);
 
 create policy "productos owner delete"
 on public.productos for delete to authenticated

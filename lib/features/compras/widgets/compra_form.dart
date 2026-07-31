@@ -28,6 +28,7 @@ class _CompraFormState extends ConsumerState<CompraForm> {
   ProductoModel? productoSeleccionado;
   String estado = 'Recibida';
   late String sucursalCompra;
+  bool guardando = false;
   final List<CompraItemModel> items = [];
 
   double get total {
@@ -119,6 +120,10 @@ class _CompraFormState extends ConsumerState<CompraForm> {
   }
 
   Future<void> guardarCompra() async {
+    if (guardando) {
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -133,42 +138,64 @@ class _CompraFormState extends ConsumerState<CompraForm> {
       return;
     }
 
-    final ahora = DateTime.now();
-    final sucursal = sucursalCompra;
-    final numero = await ref
-        .read(compraProvider.notifier)
-        .generarNumeroCompra();
+    setState(() {
+      guardando = true;
+    });
 
-    final compra = CompraModel(
-      id: ahora.microsecondsSinceEpoch.toString(),
-      numero: numero,
-      proveedor: proveedorController.text.trim(),
-      responsable: responsableController.text.trim(),
-      sucursal: sucursal,
-      items: List.unmodifiable(items),
-      total: total,
-      pagado: total,
-      transporteCosto: 0,
-      estado: estado,
-      fecha: ahora,
-      observaciones: observacionesController.text.trim(),
-    );
+    try {
+      final ahora = DateTime.now();
+      final sucursal = sucursalCompra;
+      final numero = await ref
+          .read(compraProvider.notifier)
+          .generarNumeroCompra();
 
-    await ref.read(compraProvider.notifier).agregarCompra(compra);
+      final compra = CompraModel(
+        id: ahora.microsecondsSinceEpoch.toString(),
+        numero: numero,
+        proveedor: proveedorController.text.trim(),
+        responsable: responsableController.text.trim(),
+        sucursal: sucursal,
+        items: List.unmodifiable(items),
+        total: total,
+        pagado: total,
+        transporteCosto: 0,
+        estado: estado,
+        fecha: ahora,
+        observaciones: observacionesController.text.trim(),
+      );
 
-    if (estado == 'Recibida') {
-      await _impactarStock();
+      await ref.read(compraProvider.notifier).agregarCompra(compra);
+
+      if (estado == 'Recibida') {
+        await _impactarStock();
+      }
+
+      if (!mounted) return;
+      Navigator.pop(context);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.success,
+          content: Text('Compra registrada correctamente'),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      final mensaje = error.toString().replaceFirst('Exception: ', '');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.error,
+          content: Text('No se pudo registrar la compra: $mensaje'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          guardando = false;
+        });
+      }
     }
-
-    if (!mounted) return;
-    Navigator.pop(context);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        backgroundColor: AppColors.success,
-        content: Text('Compra registrada correctamente'),
-      ),
-    );
   }
 
   Future<void> _impactarStock() async {
@@ -492,13 +519,21 @@ class _CompraFormState extends ConsumerState<CompraForm> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     FilledButton.icon(
-                      onPressed: guardarCompra,
-                      icon: const Icon(Icons.save_outlined),
-                      label: const Text("Registrar Compra"),
+                      onPressed: guardando ? null : guardarCompra,
+                      icon: guardando
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.save_outlined),
+                      label: Text(
+                        guardando ? "Registrando..." : "Registrar Compra",
+                      ),
                     ),
                     const SizedBox(height: 10),
                     OutlinedButton.icon(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: guardando ? null : () => Navigator.pop(context),
                       icon: const Icon(Icons.close),
                       label: const Text("Cancelar"),
                     ),
@@ -508,15 +543,23 @@ class _CompraFormState extends ConsumerState<CompraForm> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     OutlinedButton.icon(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: guardando ? null : () => Navigator.pop(context),
                       icon: const Icon(Icons.close),
                       label: const Text("Cancelar"),
                     ),
                     const SizedBox(width: 16),
                     FilledButton.icon(
-                      onPressed: guardarCompra,
-                      icon: const Icon(Icons.save_outlined),
-                      label: const Text("Registrar Compra"),
+                      onPressed: guardando ? null : guardarCompra,
+                      icon: guardando
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.save_outlined),
+                      label: Text(
+                        guardando ? "Registrando..." : "Registrar Compra",
+                      ),
                     ),
                   ],
                 ),
