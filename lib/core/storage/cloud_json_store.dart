@@ -157,25 +157,48 @@ class CloudJsonStore {
       return null;
     }
 
+    const pageSize = 50;
+    var offset = 0;
+    final allRows = <dynamic>[];
+
     try {
-      final uri = _restUri(table, {
-        'select': 'id,data',
-        'order': 'updated_at.desc',
-      });
-      final response = await _send(() => http.get(uri, headers: _headers()));
+      while (true) {
+        final uri = _restUri(table, {
+          'select': 'id,data',
+          'order': 'updated_at.desc',
+          'limit': pageSize.toString(),
+          'offset': offset.toString(),
+        });
 
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        return null;
+        final response = await _send(
+          () => http.get(uri, headers: _headers()),
+        );
+
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          return null;
+        }
+
+        final decoded = jsonDecode(response.body);
+        if (decoded is! List) {
+          return null;
+        }
+
+        allRows.addAll(decoded);
+        if (decoded.length < pageSize) {
+          break;
+        }
+
+        offset += pageSize;
       }
 
-      final rows = jsonDecode(response.body);
-      if (rows is! List) {
-        return null;
-      }
+      return allRows.map<Map<dynamic, dynamic>>((row) {
+        final rowMap = Map<String, dynamic>.from(row as Map);
+        final rawData = rowMap['data'];
+        final data = rawData is Map
+            ? Map<dynamic, dynamic>.from(rawData)
+            : <dynamic, dynamic>{};
 
-      return rows.map<Map<dynamic, dynamic>>((row) {
-        final data = Map<dynamic, dynamic>.from(row['data'] as Map? ?? {});
-        data['id'] = data['id'] ?? row['id'];
+        data['id'] = data['id'] ?? rowMap['id'];
         return data;
       }).toList();
     } catch (_) {

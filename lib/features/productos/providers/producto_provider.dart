@@ -42,6 +42,12 @@ class ProductoNotifier extends StateNotifier<ProductoState> {
     _aplicarProductoEnPantalla(producto);
   }
 
+  Future<int> sincronizarCatalogoConNube() async {
+    final total = await repository.sincronizarCatalogoConNube();
+    await cargarProductos();
+    return total;
+  }
+
   Future<int> importarCatalogoInicialLcc() async {
     final agregados = await repository.importarCatalogoInicialLcc(
       productosActuales: state.productos,

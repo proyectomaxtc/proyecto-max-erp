@@ -131,6 +131,11 @@ class ProductoHeader extends ConsumerWidget {
                             label: const Text("Transferir stock"),
                           ),
                           OutlinedButton.icon(
+                            onPressed: () => _abrirSincronizadorNube(context),
+                            icon: const Icon(Icons.cloud_upload_outlined),
+                            label: const Text("Subir a nube"),
+                          ),
+                          OutlinedButton.icon(
                             onPressed: () => _abrirActualizadorLlaves(context),
                             icon: const Icon(Icons.key_outlined),
                             label: const Text("Actualizar llaves"),
@@ -203,6 +208,12 @@ class ProductoHeader extends ConsumerWidget {
                                   _abrirTransferenciaStock(context),
                             ),
                             OutlinedButton.icon(
+                              icon: const Icon(Icons.cloud_upload_outlined),
+                              label: const Text("Subir a nube"),
+                              onPressed: () =>
+                                  _abrirSincronizadorNube(context),
+                            ),
+                            OutlinedButton.icon(
                               icon: const Icon(Icons.key_outlined),
                               label: const Text("Actualizar llaves"),
                               onPressed: () =>
@@ -260,6 +271,14 @@ class ProductoHeader extends ConsumerWidget {
     );
   }
 
+  void _abrirSincronizadorNube(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const _SincronizarNubeDialog(),
+    );
+  }
+
   void _abrirProducto(BuildContext context) {
     showDialog(
       context: context,
@@ -268,6 +287,128 @@ class ProductoHeader extends ConsumerWidget {
         return const AppDialog(title: "Nuevo Producto", child: ProductoForm());
       },
     );
+  }
+}
+
+class _SincronizarNubeDialog extends ConsumerStatefulWidget {
+  const _SincronizarNubeDialog();
+
+  @override
+  ConsumerState<_SincronizarNubeDialog> createState() =>
+      _SincronizarNubeDialogState();
+}
+
+class _SincronizarNubeDialogState
+    extends ConsumerState<_SincronizarNubeDialog> {
+  bool sincronizando = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final productosLocales = ref.watch(productoProvider).productos.length;
+
+    return AppDialog(
+      title: "Subir catalogo a la nube",
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.primary),
+            ),
+            child: Text(
+              "Esto envia los productos visibles en esta computadora a Supabase para que tambien aparezcan en Alberdi, celulares y otros equipos.",
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            productosLocales == 1
+                ? "Se encontro 1 producto para sincronizar."
+                : "Se encontraron $productosLocales productos para sincronizar.",
+            style: const TextStyle(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            "Use esta opcion solo desde la computadora donde se ve el catalogo completo.",
+            style: TextStyle(color: AppColors.textDisabled),
+          ),
+          const SizedBox(height: 22),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              OutlinedButton.icon(
+                onPressed: sincronizando ? null : () => Navigator.pop(context),
+                icon: const Icon(Icons.close),
+                label: const Text("Cancelar"),
+              ),
+              const SizedBox(width: 12),
+              FilledButton.icon(
+                onPressed: sincronizando ? null : _sincronizar,
+                icon: sincronizando
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.cloud_upload_outlined),
+                label: Text(sincronizando ? "Subiendo..." : "Subir ahora"),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _sincronizar() async {
+    setState(() {
+      sincronizando = true;
+    });
+
+    try {
+      final total = await ref
+          .read(productoProvider.notifier)
+          .sincronizarCatalogoConNube();
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.success,
+          content: Text(
+            total == 1
+                ? "Se subio 1 producto a la nube."
+                : "Se subieron $total productos a la nube.",
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        sincronizando = false;
+      });
+
+      final mensaje = error.toString().replaceFirst('Exception: ', '');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.error,
+          content: Text(mensaje),
+        ),
+      );
+    }
   }
 }
 

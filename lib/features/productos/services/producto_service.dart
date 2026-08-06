@@ -1,6 +1,7 @@
 import 'package:hive/hive.dart';
 
 import '../../../core/storage/cloud_json_store.dart';
+import '../../../core/storage/product_image_storage.dart';
 import '../../../core/storage/storage_boxes.dart';
 import '../../../core/storage/storage_service.dart';
 import '../models/producto_import_model.dart';
@@ -24,6 +25,56 @@ class ProductoService {
     );
 
     return values.map(ProductoModel.fromMap).toList();
+  }
+
+  Future<int> sincronizarCatalogoConNube() async {
+    if (!CloudJsonStore.enabled || !CloudJsonStore.hasActiveSession) {
+      throw Exception(
+        'Ingrese con email y contrasena de Supabase para subir el catalogo a la nube.',
+      );
+    }
+
+    final productos = obtenerProductosLocales();
+    if (productos.isEmpty) {
+      return 0;
+    }
+
+    var sincronizados = 0;
+    for (final producto in productos) {
+      var actualizado = producto;
+      final imagen = producto.imagenPath.trim();
+
+      if (imagen.startsWith('data:image/')) {
+        final url = await ProductImageStorage.uploadDataUrl(
+          productId: producto.id,
+          dataUrl: imagen,
+        );
+
+        if (url != null && url.isNotEmpty) {
+          actualizado = producto.copyWith(
+            imagenPath: url,
+            actualizado: DateTime.now(),
+          );
+          await _box.put(actualizado.id, actualizado.toMap());
+        }
+      }
+
+      final guardado = await CloudJsonStore.save(
+        table: StorageBoxes.productos,
+        id: actualizado.id,
+        data: actualizado.toMap(),
+      );
+
+      if (!guardado) {
+        throw Exception(
+          'Supabase no permitio subir el producto ${actualizado.nombre}. Revise permisos de productos.',
+        );
+      }
+
+      sincronizados++;
+    }
+
+    return sincronizados;
   }
 
   Future<int> obtenerProximoNumero(String categoria) async {

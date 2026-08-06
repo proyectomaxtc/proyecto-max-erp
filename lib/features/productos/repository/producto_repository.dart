@@ -15,6 +15,10 @@ class ProductoRepository {
     return service.obtenerProductosLocales();
   }
 
+  Future<int> sincronizarCatalogoConNube() {
+    return service.sincronizarCatalogoConNube();
+  }
+
   Future<int> obtenerProximoNumero(String categoria) {
     return service.obtenerProximoNumero(categoria);
   }
