@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -14,9 +16,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final UserService service;
   static const _sessionUserIdKey = 'auth_session_user_id';
   static const _sessionUserProfileKey = 'auth_session_user_profile';
+  static const _sessionSavedAtKey = 'auth_session_saved_at';
+  static const _employeeSessionTtl = Duration(hours: 14);
 
   AuthNotifier(this.service) : super(const AuthState()) {
-    cargarUsuarios();
+    _iniciarSesion();
+  }
+
+  Future<void> _iniciarSesion() async {
+    await _restaurarSesionTemporal();
+    await cargarUsuarios();
   }
 
   Future<void> cargarUsuarios() async {
@@ -30,7 +39,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           ? usuarioActual
           : null;
 
-      if (usuarioVigente == null) {
+      if (usuarioActual != null && usuarioVigente == null) {
         await _limpiarSesion();
         await SupabaseAuthService.signOut();
       }
@@ -38,6 +47,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = state.copyWith(
         usuarios: usuarios,
         usuario: usuarioVigente,
+        limpiarUsuario: usuarioVigente == null,
         cargandoSesion: false,
       );
     } catch (_) {
@@ -228,8 +238,53 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(limpiarUsuario: true, cargandoSesion: false);
   }
 
-  Future<void> _guardarSesion(AppUserModel _) async {
-    await _limpiarSesion();
+  Future<void> _guardarSesion(AppUserModel usuario) async {
+    if (usuario.esPropietario) {
+      await _limpiarSesion();
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_sessionUserIdKey, usuario.id);
+    await prefs.setString(_sessionUserProfileKey, jsonEncode(usuario.toMap()));
+    await prefs.setString(
+      _sessionSavedAtKey,
+      DateTime.now().toIso8601String(),
+    );
+  }
+
+  Future<void> _restaurarSesionTemporal() async {
+    final prefs = await SharedPreferences.getInstance();
+    final rawProfile = prefs.getString(_sessionUserProfileKey);
+    final rawSavedAt = prefs.getString(_sessionSavedAtKey);
+    if (rawProfile == null || rawProfile.trim().isEmpty) {
+      return;
+    }
+
+    final savedAt = DateTime.tryParse(rawSavedAt ?? '');
+    if (savedAt == null ||
+        DateTime.now().difference(savedAt) > _employeeSessionTtl) {
+      await _limpiarSesion();
+      return;
+    }
+
+    try {
+      final decoded = jsonDecode(rawProfile);
+      if (decoded is! Map) {
+        await _limpiarSesion();
+        return;
+      }
+
+      final usuario = AppUserModel.fromMap(decoded);
+      if (!usuario.activo || usuario.esPropietario) {
+        await _limpiarSesion();
+        return;
+      }
+
+      state = state.copyWith(usuario: usuario, cargandoSesion: false);
+    } catch (_) {
+      await _limpiarSesion();
+    }
   }
 
   AppUserModel _conservarDatosLocales(
@@ -260,5 +315,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_sessionUserIdKey);
     await prefs.remove(_sessionUserProfileKey);
+    await prefs.remove(_sessionSavedAtKey);
   }
 }

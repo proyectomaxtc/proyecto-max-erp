@@ -51,8 +51,10 @@ class _ProductosPageState extends ConsumerState<ProductosPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const ProductoSummary(),
-              SizedBox(height: compact ? 8 : 12),
+              if (!compact) ...[
+                const ProductoSummary(),
+                const SizedBox(height: 12),
+              ],
               const ProductoHeader(),
               SizedBox(height: compact ? 8 : 12),
               const Expanded(child: ProductoTable()),

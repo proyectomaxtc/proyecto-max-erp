@@ -417,7 +417,11 @@ class CloudJsonStore {
           .timeout(_requestTimeout);
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        await clearSession();
+        if (response.statusCode == 400 ||
+            response.statusCode == 401 ||
+            response.statusCode == 403) {
+          await clearSession();
+        }
         return false;
       }
 

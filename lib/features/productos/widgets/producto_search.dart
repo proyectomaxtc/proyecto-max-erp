@@ -36,7 +36,7 @@ class _ProductoSearchState extends ConsumerState<ProductoSearch> {
     }
 
     return SizedBox(
-      width: 320,
+      width: double.infinity,
       child: AppSearchBar(
         controller: _controller,
         hint: "Buscar producto...",

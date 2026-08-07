@@ -75,10 +75,10 @@ class ProductoHeader extends ConsumerWidget {
     }).toList();
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(compact ? 10 : 16),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(compact ? 12 : 16),
         border: Border.all(color: AppColors.border),
       ),
       child: Column(
@@ -95,55 +95,86 @@ class ProductoHeader extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const ProductoSearch(),
-                    const SizedBox(height: 10),
-                    _CategoriaFilter(
-                      categorias: categorias,
-                      seleccionada: state.categoria,
-                    ),
-                    const SizedBox(height: 10),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: filtros
-                            .map(
-                              (filtro) => Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: filtro,
-                              ),
-                            )
-                            .toList(),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+                    const SizedBox(height: 8),
+                    Row(
                       children: [
-                        FilledButton.icon(
-                          onPressed: () => _abrirListaCompleta(context),
-                          icon: const Icon(Icons.open_in_full_rounded),
-                          label: const Text("Ampliar lista"),
+                        Expanded(
+                          child: _CategoriaFilter(
+                            categorias: categorias,
+                            seleccionada: state.categoria,
+                            compact: true,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _FiltroDropdown(
+                            filtro: filtroActivo,
+                            onChanged: (filtro) {
+                              ref
+                                  .read(productoProvider.notifier)
+                                  .cambiarFiltro(filtro);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: () => _abrirListaCompleta(context),
+                            icon: const Icon(Icons.open_in_full_rounded),
+                            label: const Text("Ampliar lista"),
+                          ),
                         ),
                         if (esPropietario) ...[
-                          OutlinedButton.icon(
-                            onPressed: () => _abrirTransferenciaStock(context),
-                            icon: const Icon(Icons.swap_horiz_rounded),
-                            label: const Text("Transferir stock"),
-                          ),
-                          OutlinedButton.icon(
-                            onPressed: () => _abrirSincronizadorNube(context),
-                            icon: const Icon(Icons.cloud_upload_outlined),
-                            label: const Text("Subir a nube"),
-                          ),
-                          OutlinedButton.icon(
-                            onPressed: () => _abrirActualizadorLlaves(context),
-                            icon: const Icon(Icons.key_outlined),
-                            label: const Text("Actualizar llaves"),
-                          ),
-                          OutlinedButton.icon(
-                            onPressed: () => _abrirImportadorLista(context),
-                            icon: const Icon(Icons.upload_file_outlined),
-                            label: const Text("Importar lista"),
+                          const SizedBox(width: 8),
+                          PopupMenuButton<String>(
+                            tooltip: "Acciones",
+                            color: AppColors.surface,
+                            icon: const Icon(Icons.more_horiz_rounded),
+                            itemBuilder: (context) => const [
+                              PopupMenuItem(
+                                value: 'nuevo',
+                                child: Text('Nuevo producto'),
+                              ),
+                              PopupMenuItem(
+                                value: 'transferir',
+                                child: Text('Transferir stock'),
+                              ),
+                              PopupMenuItem(
+                                value: 'subir',
+                                child: Text('Subir a nube'),
+                              ),
+                              PopupMenuItem(
+                                value: 'llaves',
+                                child: Text('Actualizar llaves'),
+                              ),
+                              PopupMenuItem(
+                                value: 'importar',
+                                child: Text('Importar lista'),
+                              ),
+                            ],
+                            onSelected: (value) {
+                              switch (value) {
+                                case 'nuevo':
+                                  _abrirProducto(context);
+                                  break;
+                                case 'transferir':
+                                  _abrirTransferenciaStock(context);
+                                  break;
+                                case 'subir':
+                                  _abrirSincronizadorNube(context);
+                                  break;
+                                case 'llaves':
+                                  _abrirActualizadorLlaves(context);
+                                  break;
+                                case 'importar':
+                                  _abrirImportadorLista(context);
+                                  break;
+                              }
+                            },
                           ),
                         ],
                       ],
@@ -1182,10 +1213,12 @@ List<String> _categoriasDisponibles(List<ProductoModel> productos) {
 class _CategoriaFilter extends ConsumerWidget {
   final List<String> categorias;
   final String seleccionada;
+  final bool compact;
 
   const _CategoriaFilter({
     required this.categorias,
     required this.seleccionada,
+    this.compact = false,
   });
 
   @override
@@ -1202,7 +1235,10 @@ class _CategoriaFilter extends ConsumerWidget {
         fillColor: AppColors.card,
         prefixIcon: const Icon(Icons.category_outlined),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: compact ? 8 : 12,
+          vertical: compact ? 8 : 0,
+        ),
       ),
       items: [
         const DropdownMenuItem<String>(
@@ -1218,6 +1254,46 @@ class _CategoriaFilter extends ConsumerWidget {
       ],
       onChanged: (value) {
         ref.read(productoProvider.notifier).cambiarCategoria(value ?? '');
+      },
+    );
+  }
+}
+
+class _FiltroDropdown extends StatelessWidget {
+  final ProductoFilter filtro;
+  final ValueChanged<ProductoFilter> onChanged;
+
+  const _FiltroDropdown({required this.filtro, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<ProductoFilter>(
+      value: filtro,
+      isExpanded: true,
+      dropdownColor: AppColors.surface,
+      decoration: InputDecoration(
+        labelText: 'Filtro',
+        filled: true,
+        fillColor: AppColors.card,
+        prefixIcon: const Icon(Icons.filter_list_rounded),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      ),
+      items: ProductoFilter.values
+          .map(
+            (value) => DropdownMenuItem<ProductoFilter>(
+              value: value,
+              child: Text(
+                _labelFiltro(value),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          )
+          .toList(),
+      onChanged: (value) {
+        if (value != null) {
+          onChanged(value);
+        }
       },
     );
   }
@@ -1388,19 +1464,35 @@ class _SucursalActualBanner extends StatelessWidget {
     final compact = MediaQuery.sizeOf(context).width < 760;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 10 : 14,
+        vertical: compact ? 8 : 12,
+      ),
       decoration: BoxDecoration(
         color: AppColors.primary.withValues(alpha: .12),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.primary.withValues(alpha: .45)),
       ),
       child: compact
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          ? Row(
               children: [
-                _SucursalLabel(sucursal: sucursal),
-                const SizedBox(height: 10),
-                Wrap(spacing: 8, runSpacing: 8, children: sucursales),
+                Expanded(child: _SucursalLabel(sucursal: sucursal)),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: sucursales
+                          .map(
+                            (sucursal) => Padding(
+                              padding: const EdgeInsets.only(left: 6),
+                              child: sucursal,
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ),
+                ),
               ],
             )
           : Row(
