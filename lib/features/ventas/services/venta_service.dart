@@ -20,12 +20,20 @@ class VentaService {
   }
 
   Future<void> guardarVenta(VentaModel venta) async {
-    await _box.put(venta.id, venta.toMap());
-    await CloudJsonStore.save(
+    final data = venta.toMap();
+    final guardada = await CloudJsonStore.save(
       table: StorageBoxes.ventas,
       id: venta.id,
-      data: venta.toMap(),
+      data: data,
     );
+
+    if (CloudJsonStore.enabled && !guardada) {
+      throw Exception(
+        'No se pudo guardar la venta en la nube. Revise conexion o sesion e intente nuevamente.',
+      );
+    }
+
+    await _box.put(venta.id, data);
   }
 
   Future<void> eliminarVenta(String id) async {

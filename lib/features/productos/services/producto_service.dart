@@ -14,7 +14,9 @@ class ProductoService {
   List<ProductoModel> obtenerProductosLocales() {
     return _box.values
         .whereType<Map>()
-        .map((value) => ProductoModel.fromMap(Map<dynamic, dynamic>.from(value)))
+        .map(
+          (value) => ProductoModel.fromMap(Map<dynamic, dynamic>.from(value)),
+        )
         .toList();
   }
 

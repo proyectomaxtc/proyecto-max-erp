@@ -19,17 +19,35 @@ class CompraService {
   }
 
   Future<void> guardarCompra(CompraModel compra) async {
-    await _box.put(compra.id, compra.toMap());
-    await CloudJsonStore.save(
+    final data = compra.toMap();
+    final guardada = await CloudJsonStore.save(
       table: StorageBoxes.compras,
       id: compra.id,
-      data: compra.toMap(),
+      data: data,
     );
+
+    if (CloudJsonStore.enabled && !guardada) {
+      throw Exception(
+        'No se pudo guardar la compra en la nube. Revise conexion o sesion e intente nuevamente.',
+      );
+    }
+
+    await _box.put(compra.id, data);
   }
 
   Future<void> eliminarCompra(String id) async {
+    final eliminada = await CloudJsonStore.delete(
+      table: StorageBoxes.compras,
+      id: id,
+    );
+
+    if (CloudJsonStore.enabled && !eliminada) {
+      throw Exception(
+        'No se pudo eliminar la compra en la nube. Revise permisos o conexion.',
+      );
+    }
+
     await _box.delete(id);
-    await CloudJsonStore.delete(table: StorageBoxes.compras, id: id);
   }
 
   Future<int> obtenerProximoNumero() async {

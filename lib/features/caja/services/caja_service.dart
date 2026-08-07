@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:hive/hive.dart';
 
 import '../../../core/storage/cloud_json_store.dart';
@@ -23,17 +21,35 @@ class CajaService {
   }
 
   Future<void> guardarMovimiento(CajaMovimientoModel movimiento) async {
-    await _box.put(movimiento.id, movimiento.toMap());
-    await CloudJsonStore.save(
+    final data = movimiento.toMap();
+    final guardado = await CloudJsonStore.save(
       table: StorageBoxes.caja,
       id: movimiento.id,
-      data: movimiento.toMap(),
+      data: data,
     );
+
+    if (CloudJsonStore.enabled && !guardado) {
+      throw Exception(
+        'No se pudo guardar el movimiento de caja en la nube. Revise conexion o sesion.',
+      );
+    }
+
+    await _box.put(movimiento.id, data);
   }
 
   Future<void> eliminarMovimiento(String id) async {
+    final eliminado = await CloudJsonStore.delete(
+      table: StorageBoxes.caja,
+      id: id,
+    );
+
+    if (CloudJsonStore.enabled && !eliminado) {
+      throw Exception(
+        'No se pudo eliminar el movimiento de caja en la nube. Revise permisos o conexion.',
+      );
+    }
+
     await _box.delete(id);
-    await CloudJsonStore.delete(table: StorageBoxes.caja, id: id);
   }
 
   Future<List<CajaTurnoModel>> obtenerTurnos() async {
@@ -47,22 +63,23 @@ class CajaService {
   }
 
   Future<void> guardarTurno(CajaTurnoModel turno) async {
-    await _turnosBox.put(turno.id, turno.toMap());
-    await CloudJsonStore.save(
+    final data = turno.toMap();
+    final guardado = await CloudJsonStore.save(
       table: StorageBoxes.cajaTurnos,
       id: turno.id,
-      data: turno.toMap(),
+      data: data,
     );
+
+    if (CloudJsonStore.enabled && !guardado) {
+      throw Exception(
+        'No se pudo guardar el turno de caja en la nube. Revise conexion o sesion.',
+      );
+    }
+
+    await _turnosBox.put(turno.id, data);
   }
 
   Future<void> guardarTurnoRapido(CajaTurnoModel turno) async {
-    await _turnosBox.put(turno.id, turno.toMap());
-    unawaited(
-      CloudJsonStore.save(
-        table: StorageBoxes.cajaTurnos,
-        id: turno.id,
-        data: turno.toMap(),
-      ),
-    );
+    await guardarTurno(turno);
   }
 }

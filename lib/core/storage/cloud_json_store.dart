@@ -12,7 +12,7 @@ class CloudJsonStore {
   static bool _initialized = false;
   static bool _available = false;
   static const _requestTimeout = Duration(seconds: 12);
-  static const _syncCacheTtl = Duration(seconds: 45);
+  static const _syncCacheTtl = Duration(seconds: 8);
   static const _accessTokenKey = 'supabase_access_token';
   static const _refreshTokenKey = 'supabase_refresh_token';
   static const _authIdKey = 'supabase_auth_id';
@@ -111,41 +111,15 @@ class CloudJsonStore {
       return values;
     }
 
-    final mergedValues = <String, Map<dynamic, dynamic>>{};
+    final values = <Map<dynamic, dynamic>>[];
     for (final value in remoteValues) {
       final id = value['id']?.toString();
       if (id == null || id.isEmpty) {
         continue;
       }
-      mergedValues[id] = Map<dynamic, dynamic>.from(value);
+      values.add(Map<dynamic, dynamic>.from(value));
     }
 
-    for (final local in _localValues(box)) {
-      final id = local['id']?.toString();
-      if (id == null || id.isEmpty) {
-        continue;
-      }
-
-      final remote = mergedValues[id];
-      if (remote == null || _isLocalNewer(local, remote)) {
-        mergedValues[id] = local;
-        await save(table: table, id: id, data: local);
-        continue;
-      }
-
-      final localImage = local['imagenPath']?.toString() ?? '';
-      final remoteImage = remote['imagenPath']?.toString() ?? '';
-      final localHasPortableImage = localImage.startsWith('data:image/');
-      final remoteHasPortableImage = remoteImage.startsWith('data:image/');
-      if (localHasPortableImage && !remoteHasPortableImage) {
-        final merged = Map<dynamic, dynamic>.from(remote);
-        merged['imagenPath'] = localImage;
-        mergedValues[id] = merged;
-        await save(table: table, id: id, data: merged);
-      }
-    }
-
-    final values = mergedValues.values.toList();
     await _replaceBox(box, values);
     _setCache(table, values);
 
@@ -170,9 +144,7 @@ class CloudJsonStore {
           'offset': offset.toString(),
         });
 
-        final response = await _send(
-          () => http.get(uri, headers: _headers()),
-        );
+        final response = await _send(() => http.get(uri, headers: _headers()));
 
         if (response.statusCode < 200 || response.statusCode >= 300) {
           return null;
@@ -361,9 +333,9 @@ class CloudJsonStore {
   }
 
   static Uri _restUri(String path, [Map<String, String>? query]) {
-    return Uri.parse('${SupabaseConfig.url}/rest/v1/$path').replace(
-      queryParameters: query,
-    );
+    return Uri.parse(
+      '${SupabaseConfig.url}/rest/v1/$path',
+    ).replace(queryParameters: query);
   }
 
   static Map<String, String> _headers({String? prefer}) {
@@ -445,39 +417,5 @@ class CloudJsonStore {
     } catch (_) {
       return false;
     }
-  }
-
-  static bool _isLocalNewer(
-    Map<dynamic, dynamic> local,
-    Map<dynamic, dynamic> remote,
-  ) {
-    final localUpdatedAt = _recordDate(local);
-    if (localUpdatedAt == null) {
-      return false;
-    }
-
-    final remoteUpdatedAt = _recordDate(remote);
-    if (remoteUpdatedAt == null) {
-      return true;
-    }
-
-    return localUpdatedAt.isAfter(remoteUpdatedAt);
-  }
-
-  static DateTime? _recordDate(Map<dynamic, dynamic> value) {
-    for (final key in const ['actualizado', 'updated_at', 'fecha', 'creado']) {
-      final raw = value[key];
-      if (raw is DateTime) {
-        return raw;
-      }
-      if (raw is String) {
-        final parsed = DateTime.tryParse(raw);
-        if (parsed != null) {
-          return parsed;
-        }
-      }
-    }
-
-    return null;
   }
 }

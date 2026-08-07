@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/branches.dart';
+import '../../../core/storage/cloud_json_store.dart';
 import '../../../core/storage/storage_boxes.dart';
 import '../../../core/storage/storage_service.dart';
 import '../../productos/models/producto_model.dart';
@@ -30,24 +32,71 @@ class VentaNotifier extends StateNotifier<VentaState> {
   }
 
   Future<void> agregarVenta(VentaModel venta) async {
-    await repository.guardarVenta(venta);
-    await cargarVentas();
+    var stockDescontado = false;
+    var ventaParaGuardar = venta;
+
+    try {
+      if (venta.estado == 'Completada') {
+        await _descontarStock(venta);
+        stockDescontado = true;
+        ventaParaGuardar = venta.copyWith(stockAplicado: true);
+      }
+
+      await repository.guardarVenta(ventaParaGuardar);
+      await cargarVentas();
+    } catch (_) {
+      if (stockDescontado) {
+        try {
+          await _devolverStock(venta);
+        } catch (_) {
+          // Si la compensacion falla, se informa el error principal.
+        }
+      }
+      rethrow;
+    }
   }
 
   Future<void> actualizarVenta({
     required VentaModel original,
     required VentaModel actualizada,
   }) async {
-    if (original.estado == 'Completada') {
-      await _devolverStock(original);
-    }
+    var stockOriginalDevuelto = false;
+    var stockActualizadoDescontado = false;
+    var ventaParaGuardar = actualizada.copyWith(stockAplicado: false);
 
-    if (actualizada.estado == 'Completada') {
-      await _descontarStock(actualizada);
-    }
+    try {
+      if (original.estado == 'Completada' && original.stockAplicado) {
+        await _devolverStock(original);
+        stockOriginalDevuelto = true;
+      }
 
-    await repository.guardarVenta(actualizada);
-    await cargarVentas();
+      if (actualizada.estado == 'Completada') {
+        await _descontarStock(actualizada);
+        stockActualizadoDescontado = true;
+        ventaParaGuardar = actualizada.copyWith(stockAplicado: true);
+      }
+
+      await repository.guardarVenta(ventaParaGuardar);
+      await cargarVentas();
+    } catch (_) {
+      if (stockActualizadoDescontado) {
+        try {
+          await _devolverStock(ventaParaGuardar);
+        } catch (_) {
+          // Se intenta dejar el stock como estaba antes de la edicion.
+        }
+      }
+
+      if (stockOriginalDevuelto) {
+        try {
+          await _descontarStock(original);
+        } catch (_) {
+          // Se mantiene el error principal para que el usuario reintente.
+        }
+      }
+
+      rethrow;
+    }
   }
 
   Future<void> eliminarVenta(String id) async {
@@ -69,6 +118,7 @@ class VentaNotifier extends StateNotifier<VentaState> {
     try {
       if (venta != null &&
           venta.estado == 'Completada' &&
+          venta.stockAplicado &&
           !_stockYaDevueltoPorEliminacion(venta.id)) {
         await _devolverStock(venta);
         stockDevuelto = true;
@@ -115,8 +165,11 @@ class VentaNotifier extends StateNotifier<VentaState> {
   }
 
   Future<void> _aplicarMovimientoStock(VentaModel venta, double signo) async {
-    final productos = await productoService.obtenerProductos();
+    final sucursal = _normalizarSucursal(venta.sucursal);
+    final productos = await _obtenerProductosParaStock();
     final cantidadesPorProducto = <String, double>{};
+    final productosOriginales = <ProductoModel>[];
+    final productosActualizados = <ProductoModel>[];
 
     for (final ventaItem in venta.items) {
       if (ventaItem.esVentaLibre) {
@@ -136,22 +189,82 @@ class VentaNotifier extends StateNotifier<VentaState> {
         orElse: () => ProductoModel.empty(),
       );
 
-      if (producto.esVentaLibre || producto.id.isEmpty) {
+      if (producto.esVentaLibre) {
         continue;
       }
 
-      final stockActual = producto.stockEnSucursal(venta.sucursal);
+      if (producto.id.isEmpty) {
+        throw Exception(
+          'No se encontro el producto de la venta en el catalogo. Revise sincronizacion antes de registrar.',
+        );
+      }
+
+      final stockActual = producto.stockEnSucursal(sucursal);
       final stockNuevo = stockActual + (entry.value * signo);
 
-      await productoService.actualizarProducto(
-        producto
-            .conStockSucursal(
-              sucursal: venta.sucursal,
-              stockSucursal: stockNuevo,
-            )
-            .copyWith(actualizado: DateTime.now()),
-      );
+      if (signo < 0 && stockNuevo < 0) {
+        throw Exception(
+          'Stock insuficiente para ${producto.nombre}. Disponible: ${stockActual.toStringAsFixed(0)}.',
+        );
+      }
+
+      final actualizado = producto
+          .conStockSucursal(sucursal: sucursal, stockSucursal: stockNuevo)
+          .copyWith(actualizado: DateTime.now());
+
+      productosOriginales.add(producto);
+      productosActualizados.add(actualizado);
     }
+
+    for (var index = 0; index < productosActualizados.length; index++) {
+      try {
+        await productoService.actualizarProducto(productosActualizados[index]);
+      } catch (_) {
+        for (
+          var rollbackIndex = index - 1;
+          rollbackIndex >= 0;
+          rollbackIndex--
+        ) {
+          try {
+            await productoService.actualizarProducto(
+              productosOriginales[rollbackIndex],
+            );
+          } catch (_) {
+            // Se mantiene el primer error para que el usuario reintente.
+          }
+        }
+
+        rethrow;
+      }
+    }
+  }
+
+  Future<List<ProductoModel>> _obtenerProductosParaStock() async {
+    if (CloudJsonStore.enabled && CloudJsonStore.hasActiveSession) {
+      final remoteValues = await CloudJsonStore.loadAll(StorageBoxes.productos);
+      if (remoteValues == null) {
+        throw Exception(
+          'No se pudo confirmar el stock en Supabase. Intente nuevamente.',
+        );
+      }
+
+      return remoteValues.map(ProductoModel.fromMap).toList();
+    }
+
+    return productoService.obtenerProductos();
+  }
+
+  String _normalizarSucursal(String sucursal) {
+    final value = sucursal.trim().toLowerCase();
+    if (value.contains('alberdi')) {
+      return Branches.alberdi;
+    }
+
+    return Branches.casaCentral;
+  }
+
+  Future<void> refrescarStock() async {
+    await productoService.obtenerProductos();
   }
 
   Future<String> generarNumeroVenta() async {

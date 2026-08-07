@@ -368,17 +368,18 @@ class _VentaFormState extends ConsumerState<VentaForm> {
 
       if (widget.venta == null) {
         await ref.read(ventaProvider.notifier).agregarVenta(venta);
+        await ref.read(productoProvider.notifier).cargarProductos();
         ventaProcesada = true;
         mensajeExito = 'Venta registrada correctamente';
 
         if (estado == 'Completada') {
-          await _descontarStock();
           await _registrarIngresoCaja(venta);
         }
       } else {
         await ref
             .read(ventaProvider.notifier)
             .actualizarVenta(original: widget.venta!, actualizada: venta);
+        await ref.read(productoProvider.notifier).cargarProductos();
         await ref.read(cajaProvider.notifier).sincronizarMovimientoVenta(venta);
         ventaProcesada = true;
         mensajeExito = 'Venta actualizada correctamente';
@@ -433,7 +434,15 @@ class _VentaFormState extends ConsumerState<VentaForm> {
       }
 
       if (mounted) {
-        _mostrarError('No se pudo guardar la venta. Revise conexion y stock.');
+        final detalle = error
+            .toString()
+            .replaceFirst('Exception: ', '')
+            .trim();
+        _mostrarError(
+          detalle.isEmpty
+              ? 'No se pudo guardar la venta. Revise conexion y stock.'
+              : detalle,
+        );
       }
     } finally {
       if (mounted) {
@@ -483,32 +492,6 @@ class _VentaFormState extends ConsumerState<VentaForm> {
     return true;
   }
 
-  Future<void> _descontarStock() async {
-    final productos = ref.read(productoProvider).productos;
-    final notifier = ref.read(productoProvider.notifier);
-    final sucursal = _sucursalOperativa();
-
-    for (final item in items) {
-      final producto = productos.firstWhere(
-        (producto) => producto.id == item.productoId,
-        orElse: () => ProductoModel.empty(),
-      );
-
-      if (item.esVentaLibre || producto.esVentaLibre || producto.id.isEmpty) {
-        continue;
-      }
-
-      await notifier.actualizarProducto(
-        producto
-            .conStockSucursal(
-              sucursal: sucursal,
-              stockSucursal: producto.stockEnSucursal(sucursal) - item.cantidad,
-            )
-            .copyWith(actualizado: DateTime.now()),
-      );
-    }
-  }
-
   double _stockDisponible(ProductoModel producto) {
     final sucursal = _sucursalOperativa();
     var disponible = producto.stockEnSucursal(sucursal);
@@ -516,6 +499,7 @@ class _VentaFormState extends ConsumerState<VentaForm> {
 
     if (ventaOriginal != null &&
         ventaOriginal.estado == 'Completada' &&
+        ventaOriginal.stockAplicado &&
         ventaOriginal.sucursal == sucursal) {
       for (final item in ventaOriginal.items) {
         if (item.productoId == producto.id) {
@@ -905,10 +889,7 @@ class _VentaFormState extends ConsumerState<VentaForm> {
     final datosVenta = compact
         ? Column(
             children: [
-              if (esPropietario) ...[
-                sucursalField,
-                const SizedBox(height: 12),
-              ],
+              if (esPropietario) ...[sucursalField, const SizedBox(height: 12)],
               clienteField,
               const SizedBox(height: 12),
               pagoField,
@@ -920,8 +901,7 @@ class _VentaFormState extends ConsumerState<VentaForm> {
             spacing: 14,
             runSpacing: 14,
             children: [
-              if (esPropietario)
-                SizedBox(width: 220, child: sucursalField),
+              if (esPropietario) SizedBox(width: 220, child: sucursalField),
               SizedBox(width: esPropietario ? 235 : 260, child: clienteField),
               SizedBox(width: esPropietario ? 220 : 260, child: pagoField),
               SizedBox(width: esPropietario ? 220 : 260, child: fechaField),
@@ -1406,10 +1386,7 @@ class _HeaderStats extends StatelessWidget {
       runSpacing: 8,
       alignment: WrapAlignment.end,
       children: [
-        _HeaderChip(
-          icon: Icons.storefront_outlined,
-          label: sucursal,
-        ),
+        _HeaderChip(icon: Icons.storefront_outlined, label: sucursal),
         _HeaderChip(
           icon: Icons.shopping_basket_outlined,
           label: '$items item${items == 1 ? '' : 's'}',
@@ -1566,22 +1543,24 @@ class _ProductSearchPicker extends StatelessWidget {
       optionsBuilder: (textEditingValue) {
         final query = _normalizar(textEditingValue.text);
         final terms = query.split(' ').where((term) => term.isNotEmpty);
-        final base = [...productos]..sort(
-          (a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()),
-        );
+        final base = [...productos]
+          ..sort(
+            (a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()),
+          );
 
         if (query.isEmpty) {
           return base.take(12);
         }
 
-        return base.where((producto) {
-          final texto = _textoBusqueda(producto);
-          return terms.every(texto.contains);
-        }).take(20);
+        return base
+            .where((producto) {
+              final texto = _textoBusqueda(producto);
+              return terms.every(texto.contains);
+            })
+            .take(20);
       },
       onSelected: onSelected,
-      fieldViewBuilder:
-          (context, controller, focusNode, onFieldSubmitted) {
+      fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
         return TextFormField(
           controller: controller,
           focusNode: focusNode,
@@ -1618,10 +1597,8 @@ class _ProductSearchPicker extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 6),
                 shrinkWrap: true,
                 itemCount: lista.length,
-                separatorBuilder: (_, __) => const Divider(
-                  height: 1,
-                  color: AppColors.border,
-                ),
+                separatorBuilder: (_, __) =>
+                    const Divider(height: 1, color: AppColors.border),
                 itemBuilder: (context, index) {
                   final producto = lista[index];
                   final stockSucursal = producto.stockEnSucursal(sucursal);

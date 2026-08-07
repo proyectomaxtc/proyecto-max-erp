@@ -228,9 +228,15 @@ class CajaNotifier extends StateNotifier<CajaState> {
       observaciones: observaciones,
     );
 
+    final turnosAntes = state.turnos;
     state = state.copyWith(turnos: [turno, ...state.turnos]);
 
-    await repository.guardarTurnoRapido(turno);
+    try {
+      await repository.guardarTurno(turno);
+    } catch (_) {
+      state = state.copyWith(turnos: turnosAntes);
+      rethrow;
+    }
   }
 
   Future<void> cerrarCaja({
@@ -262,14 +268,20 @@ class CajaNotifier extends StateNotifier<CajaState> {
         ),
     };
 
+    final turnosAntes = state.turnos;
     state = state.copyWith(
       turnos: state.turnos
           .map((item) => turnosCerrados[item.id] ?? item)
           .toList(),
     );
 
-    for (final turno in turnosCerrados.values) {
-      await repository.guardarTurnoRapido(turno);
+    try {
+      for (final turno in turnosCerrados.values) {
+        await repository.guardarTurno(turno);
+      }
+    } catch (_) {
+      state = state.copyWith(turnos: turnosAntes);
+      rethrow;
     }
 
     await cargarMovimientos();
