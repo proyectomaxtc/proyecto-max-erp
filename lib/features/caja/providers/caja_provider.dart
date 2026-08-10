@@ -21,6 +21,7 @@ class CajaNotifier extends StateNotifier<CajaState> {
   final CajaRepository repository;
   final VentaService ventaService;
   final ServicioService servicioService;
+  final Map<String, CajaTurnoModel> _turnosCerradosLocalmente = {};
 
   CajaNotifier(this.repository, this.ventaService, this.servicioService)
     : super(const CajaState());
@@ -34,7 +35,20 @@ class CajaNotifier extends StateNotifier<CajaState> {
       movimientos = await repository.obtenerMovimientos();
     }
 
-    state = state.copyWith(movimientos: movimientos, turnos: turnos);
+    state = state.copyWith(
+      movimientos: movimientos,
+      turnos: _aplicarCierresLocales(turnos),
+    );
+  }
+
+  List<CajaTurnoModel> _aplicarCierresLocales(List<CajaTurnoModel> turnos) {
+    if (_turnosCerradosLocalmente.isEmpty) {
+      return turnos;
+    }
+
+    return turnos
+        .map((turno) => _turnosCerradosLocalmente[turno.id] ?? turno)
+        .toList();
   }
 
   Future<void> agregarMovimiento(CajaMovimientoModel movimiento) async {
@@ -269,6 +283,8 @@ class CajaNotifier extends StateNotifier<CajaState> {
     };
 
     final turnosAntes = state.turnos;
+    _turnosCerradosLocalmente.addAll(turnosCerrados);
+
     state = state.copyWith(
       turnos: state.turnos
           .map((item) => turnosCerrados[item.id] ?? item)
@@ -280,11 +296,12 @@ class CajaNotifier extends StateNotifier<CajaState> {
         await repository.guardarTurno(turno);
       }
     } catch (_) {
+      for (final id in turnosCerrados.keys) {
+        _turnosCerradosLocalmente.remove(id);
+      }
       state = state.copyWith(turnos: turnosAntes);
       rethrow;
     }
-
-    await cargarMovimientos();
   }
 
   void buscar(String texto) {

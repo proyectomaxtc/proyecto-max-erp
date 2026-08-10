@@ -341,14 +341,20 @@ class _TopBarState extends ConsumerState<TopBar> {
     final usuario = ref.read(authProvider).usuario;
 
     if (usuario != null && !usuario.esPropietario) {
-      await ref.read(cajaProvider.notifier).cargarMovimientos();
-      if (!mounted) {
-        return;
-      }
-
-      final cajaAbierta = ref
+      var cajaAbierta = ref
           .read(cajaProvider)
           .cajaAbiertaParaSucursal(usuario.sucursal);
+
+      if (!cajaAbierta) {
+        await ref.read(cajaProvider.notifier).cargarMovimientos();
+        if (!mounted) {
+          return;
+        }
+
+        cajaAbierta = ref
+            .read(cajaProvider)
+            .cajaAbiertaParaSucursal(usuario.sucursal);
+      }
 
       if (cajaAbierta) {
         ref.read(pendingLogoutAfterCajaCloseProvider.notifier).state = true;
