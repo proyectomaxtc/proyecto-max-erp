@@ -46,4 +46,26 @@ class BalanceGastoModel {
       observaciones: map['observaciones'] as String? ?? '',
     );
   }
+
+  BalanceGastoModel copyWith({
+    String? id,
+    String? sucursal,
+    String? categoria,
+    String? concepto,
+    double? monto,
+    String? medioPago,
+    DateTime? fecha,
+    String? observaciones,
+  }) {
+    return BalanceGastoModel(
+      id: id ?? this.id,
+      sucursal: sucursal ?? this.sucursal,
+      categoria: categoria ?? this.categoria,
+      concepto: concepto ?? this.concepto,
+      monto: monto ?? this.monto,
+      medioPago: medioPago ?? this.medioPago,
+      fecha: fecha ?? this.fecha,
+      observaciones: observaciones ?? this.observaciones,
+    );
+  }
 }

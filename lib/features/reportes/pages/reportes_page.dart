@@ -8,6 +8,8 @@ import '../../../shared/layout/main_layout.dart';
 import '../../../shared/widgets/access_denied_page.dart';
 import '../../../shared/widgets/cards/kpi_card.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../proveedores/models/proveedor_cuenta_model.dart';
+import '../../proveedores/services/proveedor_service.dart';
 import '../models/balance_gasto_model.dart';
 import '../models/balance_mensual_model.dart';
 import '../models/liquidacion_sueldo_model.dart';
@@ -22,17 +24,49 @@ class ReportesPage extends ConsumerStatefulWidget {
 
 class _ReportesPageState extends ConsumerState<ReportesPage> {
   final service = BalanceService();
-  late Future<List<BalanceMensualModel>> balancesFuture;
+  final proveedorService = ProveedorService();
+  late Future<_ReportesData> reportesFuture;
 
   @override
   void initState() {
     super.initState();
-    balancesFuture = service.obtenerBalancesMensuales();
+    reportesFuture = _cargarData();
+  }
+
+  Future<_ReportesData> _cargarData() async {
+    final balances = await service.obtenerBalancesMensuales();
+    final gastos = await service.obtenerGastos();
+    final liquidaciones = await service.obtenerLiquidaciones();
+    final proveedores = await proveedorService.obtenerProveedores();
+    final pagosProveedor = <_ProveedorPagoView>[];
+
+    for (final proveedor in proveedores) {
+      for (final movimiento in proveedor.movimientos) {
+        if (movimiento.tipo == ProveedorMovimientoTipo.pago) {
+          pagosProveedor.add(
+            _ProveedorPagoView(proveedor: proveedor, movimiento: movimiento),
+          );
+        }
+      }
+    }
+
+    pagosProveedor.sort(
+      (a, b) => b.movimiento.fecha.compareTo(a.movimiento.fecha),
+    );
+    gastos.sort((a, b) => b.fecha.compareTo(a.fecha));
+    liquidaciones.sort((a, b) => b.fechaPago.compareTo(a.fechaPago));
+
+    return _ReportesData(
+      balances: balances,
+      gastos: gastos,
+      liquidaciones: liquidaciones,
+      pagosProveedor: pagosProveedor,
+    );
   }
 
   void _recargar() {
     setState(() {
-      balancesFuture = service.obtenerBalancesMensuales();
+      reportesFuture = _cargarData();
     });
   }
 
@@ -43,21 +77,23 @@ class _ReportesPageState extends ConsumerState<ReportesPage> {
 
     if (!esPropietario) {
       return const AccessDeniedPage(
-        title: "Reportes",
-        message: "Los reportes, balances y liquidaciones son solo para propietarios.",
+        title: 'Reportes',
+        message:
+            'Los reportes, balances y liquidaciones son solo para propietarios.',
       );
     }
 
     return MainLayout(
       title: 'Reportes',
-      child: FutureBuilder<List<BalanceMensualModel>>(
-        future: balancesFuture,
+      child: FutureBuilder<_ReportesData>(
+        future: reportesFuture,
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final balances = snapshot.data!;
+          final data = snapshot.data!;
+          final balances = data.balances;
           final ahora = DateTime.now();
           final periodoActual = DateTime(ahora.year, ahora.month);
           final balancesMes = balances
@@ -94,21 +130,42 @@ class _ReportesPageState extends ConsumerState<ReportesPage> {
               ),
               const SizedBox(height: 14),
               Expanded(
-                child: balances.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No hay balances para mostrar.',
-                          style: TextStyle(color: AppColors.textSecondary),
-                        ),
+                child: ListView(
+                  children: [
+                    _MovimientosPanel(
+                      gastos: data.gastos,
+                      liquidaciones: data.liquidaciones,
+                      pagosProveedor: data.pagosProveedor,
+                      onEditarGasto: (gasto) =>
+                          _showGastoDialog(context, gasto: gasto),
+                      onEliminarGasto: _eliminarGasto,
+                      onEditarSueldo: (liquidacion) =>
+                          _showSueldoDialog(context, liquidacion: liquidacion),
+                      onEliminarSueldo: _eliminarLiquidacion,
+                    ),
+                    const SizedBox(height: 14),
+                    if (balances.isEmpty)
+                      const _EmptyCard(
+                        message:
+                            'No hay balances para mostrar. Cargue ventas, compras, gastos o sueldos para iniciar el control mensual.',
                       )
-                    : ListView.separated(
-                        itemCount: balances.length,
-                        separatorBuilder: (context, index) =>
-                            const SizedBox(height: 10),
-                        itemBuilder: (context, index) {
-                          return _BalanceCard(balance: balances[index]);
-                        },
+                    else ...[
+                      const Text(
+                        'Balances mensuales por sucursal',
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
+                      const SizedBox(height: 10),
+                      for (final balance in balances) ...[
+                        _BalanceCard(balance: balance),
+                        const SizedBox(height: 10),
+                      ],
+                    ],
+                  ],
+                ),
               ),
             ],
           );
@@ -117,30 +174,124 @@ class _ReportesPageState extends ConsumerState<ReportesPage> {
     );
   }
 
-  Future<void> _showGastoDialog(BuildContext context) async {
-    final gasto = await showDialog<BalanceGastoModel>(
+  Future<void> _showGastoDialog(
+    BuildContext context, {
+    BalanceGastoModel? gasto,
+  }) async {
+    final result = await showDialog<BalanceGastoModel>(
       context: context,
-      builder: (context) => const _GastoDialog(),
+      builder: (context) => _GastoDialog(gasto: gasto),
     );
-    if (gasto == null) {
+    if (result == null) {
       return;
     }
 
-    await service.guardarGasto(gasto);
-    _recargar();
+    try {
+      await service.guardarGasto(result);
+      _recargar();
+      _showSnack(gasto == null ? 'Gasto registrado' : 'Gasto actualizado');
+    } catch (error) {
+      _showSnack(error.toString(), error: true);
+    }
   }
 
-  Future<void> _showSueldoDialog(BuildContext context) async {
-    final liquidacion = await showDialog<LiquidacionSueldoModel>(
+  Future<void> _showSueldoDialog(
+    BuildContext context, {
+    LiquidacionSueldoModel? liquidacion,
+  }) async {
+    final result = await showDialog<LiquidacionSueldoModel>(
       context: context,
-      builder: (context) => const _SueldoDialog(),
+      builder: (context) => _SueldoDialog(liquidacion: liquidacion),
     );
-    if (liquidacion == null) {
+    if (result == null) {
       return;
     }
 
-    await service.guardarLiquidacion(liquidacion);
-    _recargar();
+    try {
+      await service.guardarLiquidacion(result);
+      _recargar();
+      _showSnack(
+        liquidacion == null ? 'Liquidacion registrada' : 'Liquidacion actualizada',
+      );
+    } catch (error) {
+      _showSnack(error.toString(), error: true);
+    }
+  }
+
+  Future<void> _eliminarGasto(BalanceGastoModel gasto) async {
+    final eliminar = await _confirmar(
+      title: 'Eliminar gasto',
+      message:
+          'Desea eliminar "${gasto.concepto}" por ${CurrencyFormatter.format(gasto.monto)}?',
+    );
+    if (!eliminar) {
+      return;
+    }
+
+    try {
+      await service.eliminarGasto(gasto.id);
+      _recargar();
+      _showSnack('Gasto eliminado');
+    } catch (error) {
+      _showSnack(error.toString(), error: true);
+    }
+  }
+
+  Future<void> _eliminarLiquidacion(LiquidacionSueldoModel liquidacion) async {
+    final eliminar = await _confirmar(
+      title: 'Eliminar sueldo',
+      message:
+          'Desea eliminar la liquidacion de ${liquidacion.empleado} por ${CurrencyFormatter.format(liquidacion.monto)}?',
+    );
+    if (!eliminar) {
+      return;
+    }
+
+    try {
+      await service.eliminarLiquidacion(liquidacion.id);
+      _recargar();
+      _showSnack('Liquidacion eliminada');
+    } catch (error) {
+      _showSnack(error.toString(), error: true);
+    }
+  }
+
+  Future<bool> _confirmar({
+    required String title,
+    required String message,
+  }) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: AppColors.surface,
+            title: Text(title),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancelar'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Eliminar'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  void _showSnack(String message, {bool error = false}) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: error ? AppColors.error : AppColors.success,
+      ),
+    );
   }
 
   bool _samePeriod(DateTime a, DateTime b) {
@@ -164,6 +315,30 @@ class _ReportesPageState extends ConsumerState<ReportesPage> {
     ];
     return '${months[date.month - 1]} ${date.year}';
   }
+}
+
+class _ReportesData {
+  final List<BalanceMensualModel> balances;
+  final List<BalanceGastoModel> gastos;
+  final List<LiquidacionSueldoModel> liquidaciones;
+  final List<_ProveedorPagoView> pagosProveedor;
+
+  const _ReportesData({
+    required this.balances,
+    required this.gastos,
+    required this.liquidaciones,
+    required this.pagosProveedor,
+  });
+}
+
+class _ProveedorPagoView {
+  final ProveedorCuentaModel proveedor;
+  final ProveedorMovimientoModel movimiento;
+
+  const _ProveedorPagoView({
+    required this.proveedor,
+    required this.movimiento,
+  });
 }
 
 class _SummaryRow extends StatelessWidget {
@@ -275,7 +450,7 @@ class _ActionsBar extends StatelessWidget {
               children: [
                 const Expanded(
                   child: Text(
-                    'Balances mensuales por sucursal',
+                    'Control mensual de gastos, sueldos y pagos',
                     style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 18,
@@ -289,6 +464,302 @@ class _ActionsBar extends StatelessWidget {
               ],
             ),
     );
+  }
+}
+
+class _MovimientosPanel extends StatelessWidget {
+  final List<BalanceGastoModel> gastos;
+  final List<LiquidacionSueldoModel> liquidaciones;
+  final List<_ProveedorPagoView> pagosProveedor;
+  final ValueChanged<BalanceGastoModel> onEditarGasto;
+  final ValueChanged<BalanceGastoModel> onEliminarGasto;
+  final ValueChanged<LiquidacionSueldoModel> onEditarSueldo;
+  final ValueChanged<LiquidacionSueldoModel> onEliminarSueldo;
+
+  const _MovimientosPanel({
+    required this.gastos,
+    required this.liquidaciones,
+    required this.pagosProveedor,
+    required this.onEditarGasto,
+    required this.onEliminarGasto,
+    required this.onEditarSueldo,
+    required this.onEliminarSueldo,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Movimientos registrados',
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Aca puede revisar y corregir gastos o sueldos. Los pagos a proveedores se muestran como control y no duplican compras de stock.',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 14),
+          _MovimientoSection(
+            title: 'Gastos del balance',
+            icon: Icons.receipt_long_outlined,
+            empty: 'No hay gastos cargados.',
+            children: [
+              for (final gasto in gastos)
+                _GastoTile(
+                  gasto: gasto,
+                  onEdit: () => onEditarGasto(gasto),
+                  onDelete: () => onEliminarGasto(gasto),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _MovimientoSection(
+            title: 'Sueldos liquidados',
+            icon: Icons.payments_outlined,
+            empty: 'No hay sueldos cargados.',
+            children: [
+              for (final liquidacion in liquidaciones)
+                _SueldoTile(
+                  liquidacion: liquidacion,
+                  onEdit: () => onEditarSueldo(liquidacion),
+                  onDelete: () => onEliminarSueldo(liquidacion),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _MovimientoSection(
+            title: 'Pagos a proveedores',
+            icon: Icons.local_shipping_outlined,
+            empty: 'No hay pagos a proveedores registrados.',
+            children: [
+              for (final pago in pagosProveedor) _ProveedorPagoTile(pago: pago),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MovimientoSection extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final String empty;
+  final List<Widget> children;
+
+  const _MovimientoSection({
+    required this.title,
+    required this.icon,
+    required this.empty,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: AppColors.primary, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (children.isEmpty)
+            Text(empty, style: const TextStyle(color: AppColors.textSecondary))
+          else
+            Column(children: children),
+        ],
+      ),
+    );
+  }
+}
+
+class _GastoTile extends StatelessWidget {
+  final BalanceGastoModel gasto;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _GastoTile({
+    required this.gasto,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _MovementTile(
+      title: gasto.concepto,
+      subtitle:
+          '${gasto.categoria} - ${_sucursalLabel(gasto.sucursal)} - ${_date(gasto.fecha)}',
+      amount: CurrencyFormatter.format(gasto.monto),
+      onEdit: onEdit,
+      onDelete: onDelete,
+    );
+  }
+}
+
+class _SueldoTile extends StatelessWidget {
+  final LiquidacionSueldoModel liquidacion;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _SueldoTile({
+    required this.liquidacion,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _MovementTile(
+      title: liquidacion.empleado,
+      subtitle:
+          '${_sucursalLabel(liquidacion.sucursal)} - Pago ${_date(liquidacion.fechaPago)} - Semana ${_date(liquidacion.periodoDesde)} a ${_date(liquidacion.periodoHasta)}',
+      amount: CurrencyFormatter.format(liquidacion.monto),
+      onEdit: onEdit,
+      onDelete: onDelete,
+    );
+  }
+}
+
+class _ProveedorPagoTile extends StatelessWidget {
+  final _ProveedorPagoView pago;
+
+  const _ProveedorPagoTile({required this.pago});
+
+  @override
+  Widget build(BuildContext context) {
+    final movimiento = pago.movimiento;
+    return _MovementTile(
+      title: pago.proveedor.nombre,
+      subtitle:
+          '${movimiento.concepto} - ${movimiento.medioPago} - ${_date(movimiento.fecha)}',
+      amount: CurrencyFormatter.format(movimiento.monto),
+    );
+  }
+}
+
+class _MovementTile extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final String amount;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+
+  const _MovementTile({
+    required this.title,
+    required this.subtitle,
+    required this.amount,
+    this.onEdit,
+    this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < 620;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: compact
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: _content(context, compact: true),
+            )
+          : Row(children: _content(context, compact: false)),
+    );
+  }
+
+  List<Widget> _content(BuildContext context, {required bool compact}) {
+    final info = Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            subtitle,
+            style: const TextStyle(color: AppColors.textSecondary),
+          ),
+        ],
+      ),
+    );
+    final actions = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          amount,
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        if (onEdit != null) ...[
+          const SizedBox(width: 8),
+          IconButton(
+            onPressed: onEdit,
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: 'Editar',
+          ),
+        ],
+        if (onDelete != null)
+          IconButton(
+            onPressed: onDelete,
+            icon: const Icon(Icons.delete_outline),
+            tooltip: 'Eliminar',
+          ),
+      ],
+    );
+
+    if (compact) {
+      return [
+        Row(children: [info]),
+        const SizedBox(height: 8),
+        actions,
+      ];
+    }
+
+    return [info, const SizedBox(width: 12), actions];
   }
 }
 
@@ -350,28 +821,6 @@ class _BalanceCard extends StatelessWidget {
       ),
     );
   }
-
-  String _periodLabel(DateTime date) {
-    final months = [
-      'Enero',
-      'Febrero',
-      'Marzo',
-      'Abril',
-      'Mayo',
-      'Junio',
-      'Julio',
-      'Agosto',
-      'Septiembre',
-      'Octubre',
-      'Noviembre',
-      'Diciembre',
-    ];
-    return '${months[date.month - 1]} ${date.year}';
-  }
-
-  String _sucursalLabel(String sucursal) {
-    return sucursal == Branches.casaCentral ? 'Santa Fe' : 'Alberdi';
-  }
 }
 
 class _Metric extends StatelessWidget {
@@ -413,8 +862,34 @@ class _Metric extends StatelessWidget {
   }
 }
 
+class _EmptyCard extends StatelessWidget {
+  final String message;
+
+  const _EmptyCard({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Text(
+        message,
+        textAlign: TextAlign.center,
+        style: const TextStyle(color: AppColors.textSecondary),
+      ),
+    );
+  }
+}
+
 class _GastoDialog extends StatefulWidget {
-  const _GastoDialog();
+  final BalanceGastoModel? gasto;
+
+  const _GastoDialog({this.gasto});
 
   @override
   State<_GastoDialog> createState() => _GastoDialogState();
@@ -428,6 +903,22 @@ class _GastoDialogState extends State<_GastoDialog> {
   String sucursal = Branches.casaCentral;
   String categoria = 'Alquiler';
   String medioPago = 'Efectivo';
+  DateTime fecha = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    final gasto = widget.gasto;
+    if (gasto != null) {
+      sucursal = gasto.sucursal;
+      categoria = gasto.categoria;
+      medioPago = gasto.medioPago;
+      fecha = gasto.fecha;
+      conceptoController.text = gasto.concepto;
+      montoController.text = gasto.monto.toStringAsFixed(0);
+      observacionesController.text = gasto.observaciones;
+    }
+  }
 
   @override
   void dispose() {
@@ -439,11 +930,12 @@ class _GastoDialogState extends State<_GastoDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final editando = widget.gasto != null;
     return AlertDialog(
       backgroundColor: AppColors.surface,
-      title: const Text('Agregar gasto al balance'),
+      title: Text(editando ? 'Editar gasto' : 'Agregar gasto al balance'),
       content: SizedBox(
-        width: 480,
+        width: 520,
         child: Form(
           key: formKey,
           child: SingleChildScrollView(
@@ -460,7 +952,8 @@ class _GastoDialogState extends State<_GastoDialog> {
                             DropdownMenuItem(value: value, child: Text(value)),
                       )
                       .toList(),
-                  onChanged: (value) => sucursal = value ?? sucursal,
+                  onChanged: (value) =>
+                      setState(() => sucursal = value ?? sucursal),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
@@ -486,7 +979,8 @@ class _GastoDialogState extends State<_GastoDialog> {
                     ),
                     DropdownMenuItem(value: 'Otros', child: Text('Otros')),
                   ],
-                  onChanged: (value) => categoria = value ?? categoria,
+                  onChanged: (value) =>
+                      setState(() => categoria = value ?? categoria),
                 ),
                 const SizedBox(height: 12),
                 _DialogField(
@@ -502,6 +996,12 @@ class _GastoDialogState extends State<_GastoDialog> {
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
+                ),
+                const SizedBox(height: 12),
+                _DateButton(
+                  label: 'Fecha del gasto',
+                  value: fecha,
+                  onChanged: (value) => setState(() => fecha = value),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
@@ -523,7 +1023,8 @@ class _GastoDialogState extends State<_GastoDialog> {
                     ),
                     DropdownMenuItem(value: 'Otro', child: Text('Otro')),
                   ],
-                  onChanged: (value) => medioPago = value ?? medioPago,
+                  onChanged: (value) =>
+                      setState(() => medioPago = value ?? medioPago),
                 ),
                 const SizedBox(height: 12),
                 _DialogField(
@@ -547,21 +1048,22 @@ class _GastoDialogState extends State<_GastoDialog> {
               return;
             }
             final now = DateTime.now();
+            final id = widget.gasto?.id ?? now.microsecondsSinceEpoch.toString();
             Navigator.pop(
               context,
               BalanceGastoModel(
-                id: now.microsecondsSinceEpoch.toString(),
+                id: id,
                 sucursal: sucursal,
                 categoria: categoria,
                 concepto: conceptoController.text.trim(),
                 monto: _parseNumber(montoController.text),
                 medioPago: medioPago,
-                fecha: now,
+                fecha: fecha,
                 observaciones: observacionesController.text.trim(),
               ),
             );
           },
-          child: const Text('Guardar'),
+          child: Text(editando ? 'Actualizar' : 'Guardar'),
         ),
       ],
     );
@@ -569,7 +1071,9 @@ class _GastoDialogState extends State<_GastoDialog> {
 }
 
 class _SueldoDialog extends StatefulWidget {
-  const _SueldoDialog();
+  final LiquidacionSueldoModel? liquidacion;
+
+  const _SueldoDialog({this.liquidacion});
 
   @override
   State<_SueldoDialog> createState() => _SueldoDialogState();
@@ -587,6 +1091,22 @@ class _SueldoDialogState extends State<_SueldoDialog> {
   DateTime pago = DateTime.now();
 
   @override
+  void initState() {
+    super.initState();
+    final liquidacion = widget.liquidacion;
+    if (liquidacion != null) {
+      sucursal = liquidacion.sucursal;
+      medioPago = liquidacion.medioPago;
+      desde = liquidacion.periodoDesde;
+      hasta = liquidacion.periodoHasta;
+      pago = liquidacion.fechaPago;
+      empleadoController.text = liquidacion.empleado;
+      montoController.text = liquidacion.monto.toStringAsFixed(0);
+      observacionesController.text = liquidacion.observaciones;
+    }
+  }
+
+  @override
   void dispose() {
     empleadoController.dispose();
     montoController.dispose();
@@ -596,11 +1116,12 @@ class _SueldoDialogState extends State<_SueldoDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final editando = widget.liquidacion != null;
     return AlertDialog(
       backgroundColor: AppColors.surface,
-      title: const Text('Liquidacion semanal'),
+      title: Text(editando ? 'Editar liquidacion' : 'Liquidacion semanal'),
       content: SizedBox(
-        width: 480,
+        width: 520,
         child: Form(
           key: formKey,
           child: SingleChildScrollView(
@@ -617,7 +1138,8 @@ class _SueldoDialogState extends State<_SueldoDialog> {
                             DropdownMenuItem(value: value, child: Text(value)),
                       )
                       .toList(),
-                  onChanged: (value) => sucursal = value ?? sucursal,
+                  onChanged: (value) =>
+                      setState(() => sucursal = value ?? sucursal),
                 ),
                 const SizedBox(height: 12),
                 _DialogField(
@@ -662,7 +1184,8 @@ class _SueldoDialogState extends State<_SueldoDialog> {
                       child: Text('Mercado Pago'),
                     ),
                   ],
-                  onChanged: (value) => medioPago = value ?? medioPago,
+                  onChanged: (value) =>
+                      setState(() => medioPago = value ?? medioPago),
                 ),
                 const SizedBox(height: 12),
                 _DialogField(
@@ -685,10 +1208,12 @@ class _SueldoDialogState extends State<_SueldoDialog> {
             if (!formKey.currentState!.validate()) {
               return;
             }
+            final id = widget.liquidacion?.id ??
+                DateTime.now().microsecondsSinceEpoch.toString();
             Navigator.pop(
               context,
               LiquidacionSueldoModel(
-                id: DateTime.now().microsecondsSinceEpoch.toString(),
+                id: id,
                 empleado: empleadoController.text.trim(),
                 sucursal: sucursal,
                 monto: _parseNumber(montoController.text),
@@ -700,7 +1225,7 @@ class _SueldoDialogState extends State<_SueldoDialog> {
               ),
             );
           },
-          child: const Text('Guardar'),
+          child: Text(editando ? 'Actualizar' : 'Guardar'),
         ),
       ],
     );
@@ -767,12 +1292,6 @@ class _DateButton extends StatelessWidget {
       label: Text('$label: ${_date(value)}'),
     );
   }
-
-  String _date(DateTime date) {
-    final day = date.day.toString().padLeft(2, '0');
-    final month = date.month.toString().padLeft(2, '0');
-    return '$day/$month/${date.year}';
-  }
 }
 
 class _DialogField extends StatelessWidget {
@@ -818,4 +1337,38 @@ InputDecoration _decoration(String label) {
 double _parseNumber(String value) {
   final normalizado = value.trim().replaceAll('.', '').replaceAll(',', '.');
   return double.tryParse(normalizado) ?? 0;
+}
+
+String _date(DateTime date) {
+  final day = date.day.toString().padLeft(2, '0');
+  final month = date.month.toString().padLeft(2, '0');
+  return '$day/$month/${date.year}';
+}
+
+String _periodLabel(DateTime date) {
+  final months = [
+    'Enero',
+    'Febrero',
+    'Marzo',
+    'Abril',
+    'Mayo',
+    'Junio',
+    'Julio',
+    'Agosto',
+    'Septiembre',
+    'Octubre',
+    'Noviembre',
+    'Diciembre',
+  ];
+  return '${months[date.month - 1]} ${date.year}';
+}
+
+String _sucursalLabel(String sucursal) {
+  if (sucursal == Branches.casaCentral) {
+    return 'Santa Fe';
+  }
+  if (sucursal == Branches.alberdi) {
+    return 'Alberdi';
+  }
+  return 'Ambas sucursales';
 }

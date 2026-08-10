@@ -56,4 +56,28 @@ class LiquidacionSueldoModel {
       observaciones: map['observaciones'] as String? ?? '',
     );
   }
+
+  LiquidacionSueldoModel copyWith({
+    String? id,
+    String? empleado,
+    String? sucursal,
+    double? monto,
+    DateTime? periodoDesde,
+    DateTime? periodoHasta,
+    DateTime? fechaPago,
+    String? medioPago,
+    String? observaciones,
+  }) {
+    return LiquidacionSueldoModel(
+      id: id ?? this.id,
+      empleado: empleado ?? this.empleado,
+      sucursal: sucursal ?? this.sucursal,
+      monto: monto ?? this.monto,
+      periodoDesde: periodoDesde ?? this.periodoDesde,
+      periodoHasta: periodoHasta ?? this.periodoHasta,
+      fechaPago: fechaPago ?? this.fechaPago,
+      medioPago: medioPago ?? this.medioPago,
+      observaciones: observaciones ?? this.observaciones,
+    );
+  }
 }

@@ -45,6 +45,22 @@ class BalanceService {
     );
   }
 
+  Future<void> eliminarGasto(String id) async {
+    final eliminado = await CloudJsonStore.delete(
+      table: StorageBoxes.gastosBalance,
+      id: id,
+      requireMatch: false,
+    );
+
+    if (!eliminado) {
+      throw Exception(
+        'No se pudo eliminar el gasto en la nube. Revise la conexion e intente nuevamente.',
+      );
+    }
+
+    await _gastosBox.delete(id);
+  }
+
   Future<void> guardarLiquidacion(LiquidacionSueldoModel liquidacion) async {
     await _sueldosBox.put(liquidacion.id, liquidacion.toMap());
     await CloudJsonStore.save(
@@ -52,6 +68,22 @@ class BalanceService {
       id: liquidacion.id,
       data: liquidacion.toMap(),
     );
+  }
+
+  Future<void> eliminarLiquidacion(String id) async {
+    final eliminado = await CloudJsonStore.delete(
+      table: StorageBoxes.liquidacionesSueldos,
+      id: id,
+      requireMatch: false,
+    );
+
+    if (!eliminado) {
+      throw Exception(
+        'No se pudo eliminar la liquidacion en la nube. Revise la conexion e intente nuevamente.',
+      );
+    }
+
+    await _sueldosBox.delete(id);
   }
 
   Future<List<BalanceMensualModel>> obtenerBalancesMensuales() async {
